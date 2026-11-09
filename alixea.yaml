@@ -1,0 +1,47 @@
+alixeaVersion: v1.0
+type: component
+name: Odoo
+description: Odoo 18 ERP & CRM
+
+supportsAdditionalHosts: { serviceName: 'app' }
+
+hosts:
+  - name: Odoo
+    identifier: app
+    port: 8069
+
+images:
+  - identifier: app
+    prebuildImage: public.ecr.aws/p8t2q7f4/alixea/component-odoo:[tag]
+
+storage:
+  - identifier: data
+    uid: 1000
+    gid: 1000
+    sizeMiB: 2048
+  - identifier: home
+    uid: 1000
+    gid: 1000
+    sizeMiB: 2048
+
+environmentVariables:
+  - identifier: INITIAL_ADMIN_PASSWORD
+    defaultValue: '${generate-random-password:12}'
+    type: secret
+  - identifier: DATABASE
+    defaultValue: "odoo"
+  - identifier: USER
+    defaultValue: "odoo"
+  - identifier: PASSWORD
+    defaultValue: '${generate-random-password:16}'
+    type: secret
+
+dependencies:
+  - identifier: postgres
+    package: https://github.com/alixea-erp/addon-postgres#v18.3
+    env:
+      include:
+        - POSTGRES_HOST:HOST
+        - POSTGRES_PORT:PORT
+        - POSTGRES_USER:POSTGRES_USER
+        - POSTGRES_PASSWORD:POSTGRES_PASSWORD
