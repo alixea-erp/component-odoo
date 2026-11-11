@@ -8,15 +8,9 @@ spec:
   selector:
     matchLabels:
       app: app
+  # In every stage: a rolling update would run the old code on a database the new pod is upgrading
   strategy:
-  {{- if eq .Values.stage "development"}}
     type: Recreate
-  {{- else }}
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
-  {{- end }}
   replicas: {{ ternary 1 0 .Values.enabled }}
   template:
     metadata:
@@ -30,9 +24,11 @@ spec:
         - name: odoo-init
           image: {{ .Values.images.app }}
           imagePullPolicy: Always
+          # From the image, not from this chart: a fix to it reaches every deployment with the next image.
+          # NOTE! What it is handed here (names, paths) is only added to: a new image runs with every older chart
           command:
             - /bin/bash
-            - /alixea-init/init.sh
+            - /init.sh
           env:
             - name: PGHOST
               value: {{ .Values.envMap.HOST.value | quote }}
@@ -52,15 +48,26 @@ spec:
               value: {{ .Values.envMap.DATABASE.value | quote }}
             - name: INITIAL_ADMIN_PASSWORD
               value: {{ .Values.envMap.INITIAL_ADMIN_PASSWORD.value | quote }}
+            # The version of this pod: the image and the fetched tag of each checked set
+            - name: ODOO_IMAGE
+              value: {{ .Values.images.app | quote }}
+            - name: DIPLOI_MODULE_SETS
+              value: "{{- range $identifier, $asset := (.Values.assets | default dict) }}{{- if $asset.hostPath }}{{ $identifier }}={{ $asset.enabled }} {{ end }}{{- end }}"
+            - name: DIPLOI_MODULE_SET_REFS
+              value: "{{- range $identifier, $asset := (.Values.assets | default dict) }}{{- if $asset.hostPath }}{{ $identifier }}={{ base $asset.hostPath }} {{ end }}{{- end }}"
           volumeMounts:
-            - name: init-script
-              mountPath: /alixea-init
-              readOnly: true
             - name: data-mount
               mountPath: /var/lib/odoo
             {{- if hasKey .Values.storage "code" }}
             - name: extra-addons-mount
               mountPath: /mnt/extra-addons
+            {{- end }}
+            {{- range $identifier, $asset := (.Values.assets | default dict) }}
+            {{- if $asset.hostPath }}
+            - name: addons-{{ $identifier }}
+              mountPath: /mnt/addons/{{ $identifier }}
+              readOnly: true
+            {{- end }}
             {{- end }}
 
       containers:
@@ -102,6 +109,17 @@ spec:
               value: {{ .Values.hosts.app }}
             - name: STAGE
               value: {{ .Values.stage }}
+            # A link init.sh sets: the image's code, or the copy of the old code after a failed update
+            - name: PYTHONPATH
+              value: /var/lib/odoo/code/current
+          readinessProbe:
+            tcpSocket:
+              port: 8069
+            periodSeconds: 2
+          lifecycle:
+            preStop:
+              exec:
+                command: ['sleep', '5']
           volumeMounts:
             - name: data-mount
               mountPath: /var/lib/odoo
@@ -117,10 +135,14 @@ spec:
             - mountPath: /mnt/extra-addons
               name: extra-addons-mount
             {{- end }}
+            {{- range $identifier, $asset := (.Values.assets | default dict) }}
+            {{- if $asset.hostPath }}
+            - name: addons-{{ $identifier }}
+              mountPath: /mnt/addons/{{ $identifier }}
+              readOnly: true
+            {{- end }}
+            {{- end }}
       volumes:
-        - name: init-script
-          configMap:
-            name: app-init
         - name: data-mount
           hostPath:
             path: {{ .Values.storage.data.hostPath }}
@@ -136,5 +158,10 @@ spec:
             type: DirectoryOrCreate
         {{- end }}
         
-
-
+        {{- range $identifier, $asset := (.Values.assets | default dict) }}
+        {{- if $asset.hostPath }}
+        - name: addons-{{ $identifier }}
+          hostPath:
+            path: {{ $asset.hostPath | quote }}
+        {{- end }}
+        {{- end }}

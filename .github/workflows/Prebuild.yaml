@@ -1,7 +1,12 @@
 name: Pre-Build Components
 
+# The images of the three Odoo series are built by hand ("Run workflow"), on the day the Enterprise fork is tagged:
+# a build on every push or every night would be a new digest, and a restart, for every deployment each time.
+# BaseImageCheck.yaml says in Slack when Odoo has published a new image. A push to main only builds main, for trying.
 on:
   push:
+    branches: [main]
+  workflow_dispatch:
 
 env:
   REGISTRY: public.ecr.aws
@@ -9,17 +14,27 @@ env:
   PROJECT: p8t2q7f4/alixea/${{ github.event.repository.name }}
 
 permissions:
-      id-token: write 
-      contents: read
+  id-token: write
+  contents: read
 
 jobs:
-  production:
-    name: 'Production'
+  image:
+    name: Odoo ${{ matrix.series }}
     runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        series: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["18.0", "19.0", "20.0"]') || fromJSON('["19.0"]') }}
+    env:
+      # One build is both the production and the development image: <tag> and <tag>-dev.
+      TAG: ${{ github.event_name == 'workflow_dispatch' && matrix.series || 'main' }}
 
     steps:
+      # Always main: init.sh travels in the image, the git tags 18.0, 19.0 and 20.0 only move for the chart
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -28,67 +43,30 @@ jobs:
           aws-region: us-east-1
 
       - name: Login to Amazon ECR Public
-        id: login-ecr-public
         uses: aws-actions/amazon-ecr-login@v2
         with:
           registry-type: public
 
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.PROJECT }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            # Set latest tag for default branch
-            type=raw,value=latest,enable={{is_default_branch}}
+      # BaseImageCheck.yaml compares this with what Odoo publishes
+      - name: Digest of Odoo's image
+        id: base
+        run: echo "digest=$(docker buildx imagetools inspect odoo:${{ matrix.series }} --format '{{.Manifest.Digest}}')" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          push: ${{ github.event_name != 'pull_request' }}
+          context: .
+          push: true
           platforms: linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-  development:
-    name: 'Development'
-    runs-on: ubuntu-24.04-arm
-    steps:      
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::300197899440:role/AlixeaPrebuildPushForGithubActions
-          aws-region: us-east-1
-
-      - name: Login to Amazon ECR Public
-        id: login-ecr-public
-        uses: aws-actions/amazon-ecr-login@v2
-        with:
-          registry-type: public
-
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.PROJECT }}
+          # NOTE! Without provenance the tag is a plain image, whose labels BaseImageCheck.yaml can read
+          provenance: false
+          build-args: |
+            ODOO_SERIES=${{ matrix.series }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            # Set latest tag for default branch
-            type=raw,value=latest,enable={{is_default_branch}}
-          flavor: |
-            suffix=-dev.,onlatest=true
-            
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          file: Dockerfile.dev
-          push: ${{ github.event_name != 'pull_request' }}
-          platforms: linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+            ${{ env.REGISTRY }}/${{ env.PROJECT }}:${{ env.TAG }}
+            ${{ env.REGISTRY }}/${{ env.PROJECT }}:${{ env.TAG }}-dev.
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.base.name=docker.io/library/odoo:${{ matrix.series }}
+            org.opencontainers.image.base.digest=${{ steps.base.outputs.digest }}

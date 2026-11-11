@@ -1,0 +1,36 @@
+name: Base Image Check
+
+# Every night: has Odoo published a new image of a series since ours was built? Then Slack says so, every night until
+# somebody runs the Prebuild. Odoo publishes one every one to three weeks
+on:
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+env:
+  IMAGE: public.ecr.aws/p8t2q7f4/alixea/${{ github.event.repository.name }}
+
+jobs:
+  check:
+    name: Odoo ${{ matrix.series }}
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        series: ['18.0', '19.0', '20.0']
+
+    steps:
+      - name: Compare the digests
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SERIES: ${{ matrix.series }}
+        run: |
+          published=$(docker buildx imagetools inspect "odoo:$SERIES" --format '{{.Manifest.Digest}}')
+          # Empty while our image of the series does not exist yet, which is also a reason to build
+          built_from=$(docker buildx imagetools inspect "$IMAGE:$SERIES" --format '{{index .Image.Config.Labels "org.opencontainers.image.base.digest"}}' || true)
+          echo "Odoo publishes $published, ours was built from ${built_from:-nothing}"
+          if [ "$published" = "$built_from" ]; then exit 0; fi
+
+          curl --fail --silent --show-error -X POST -H 'Content-Type: application/json' \
+            -d "{\"text\": \"Odoo $SERIES has a new image. Run the build when the Enterprise fork is tagged for the same day: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/Prebuild.yaml\"}" \
+            "$SLACK_WEBHOOK_URL"

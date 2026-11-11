@@ -1,7 +1,11 @@
 alixeaVersion: v1.0
 type: component
 name: Odoo
-description: Odoo 18 ERP & CRM
+description: Odoo ERP & CRM
+
+# A copy of the running code is kept on the disk for the way back from a failed update (init.sh)
+requirements:
+  diskGiB: 10
 
 supportsAdditionalHosts: { serviceName: 'app' }
 
@@ -23,6 +27,77 @@ storage:
     uid: 1000
     gid: 1000
     sizeMiB: 2048
+
+parameterGroups:
+  - name: Modules
+    identifier: modules
+    description: Module sets and their updates. Unchecking a set uninstalls its modules and their data
+    parameters:
+      - name: Update automatically
+        identifier: AUTO_UPDATE
+        type: boolean
+        defaultValue: true
+        description: Odoo and the module sets move to the latest released versions at night
+      - name: Alixea modules
+        identifier: ALIXEA_GENERIC
+        type: boolean
+        defaultValue: true
+      - name: Alixea modules version
+        identifier: ALIXEA_GENERIC_VERSION
+        type: assetVersion
+        asset: alixea-generic
+      - name: Alixea Finance
+        identifier: ALIXEA_FINANCE
+        type: boolean
+        defaultValue: false
+      - name: Alixea Finance version
+        identifier: ALIXEA_FINANCE_VERSION
+        type: assetVersion
+        asset: alixea-finance
+      - name: Odoo Enterprise
+        identifier: ENTERPRISE
+        type: boolean
+        defaultValue: false
+      - name: Odoo Enterprise version
+        identifier: ENTERPRISE_VERSION
+        type: assetVersion
+        asset: enterprise
+      - name: OCA modules
+        identifier: OCA
+        type: boolean
+        defaultValue: false
+      - name: OCA modules version
+        identifier: OCA_VERSION
+        type: assetVersion
+        asset: oca
+
+# The image is held too: it moves with the module sets, to the build an admin approved, in one restart
+assetUpdates:
+  parameter: AUTO_UPDATE
+  holdImages: true
+
+# Tags <series>/<version> of private repositories, fetched by the core and mounted at /mnt/addons/<identifier>
+assets:
+  - identifier: alixea-generic
+    repository: alixea-erp/alixea-generic
+    tagPrefix: '${COMPONENT_VERSION}/'
+    ref: '${ALIXEA_GENERIC_VERSION}'
+    parameter: ALIXEA_GENERIC
+  - identifier: alixea-finance
+    repository: alixea-erp/alixea-finance
+    tagPrefix: '${COMPONENT_VERSION}/'
+    ref: '${ALIXEA_FINANCE_VERSION}'
+    parameter: ALIXEA_FINANCE
+  - identifier: enterprise
+    repository: alixea-erp/odoo-enterprise
+    tagPrefix: '${COMPONENT_VERSION}/'
+    ref: '${ENTERPRISE_VERSION}'
+    parameter: ENTERPRISE
+  - identifier: oca
+    repository: alixea-erp/oca
+    tagPrefix: '${COMPONENT_VERSION}/'
+    ref: '${OCA_VERSION}'
+    parameter: OCA
 
 environmentVariables:
   - identifier: INITIAL_ADMIN_PASSWORD

@@ -5,8 +5,8 @@ parts of them are wrong for 18.0, e.g. `security/ir.access.csv` (18.0 uses
 `ir.model.access.csv` and `ir.rule`), `models.Constraint` (18.0 uses
 `_sql_constraints`), `fields.Domain` and the default test tags. Read
 `.agents/skills/odoo-18/SKILL.md` before using them; where they disagree, it wins.
-Check any API you are unsure of against the 18.0 source in the Odoo container,
-`/usr/lib/python3/dist-packages/odoo`.
+Check any API you are unsure of against the source in the Odoo container,
+`/var/lib/odoo/code/current/odoo` (the code that runs; `odoo --version` says which series).
 
 The skills live in `.agents/skills/`. Agents that scan that directory (Codex,
 OpenCode, Cursor, Copilot) list them when started in this folder. If yours does
@@ -68,3 +68,13 @@ speculate about platform behavior it does not describe.
 - The container runs as `odoo` (uid/gid 1000). `/var/lib/odoo` (filestore, sessions) and
   `/home/odoo` are persistent volumes, not part of the repository.
 - `README.md` has the full storage and environment variable tables.
+
+## The image and the chart
+
+- `init.sh` is in the image and holds the whole update: it clones the database, upgrades it and puts it back when
+  the upgrade fails (README, "When an update fails"). Read its header before changing it. It never drops the
+  database under the live name.
+- **What the chart hands to `init.sh` is only added to, never renamed or removed**: environment names and mount
+  paths. A new image runs with every older chart still deployed.
+- **In the Dockerfile, packages are only added within a series, and versions are pinned.** After a failed update the
+  old code runs on the new image.
