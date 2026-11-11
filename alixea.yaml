@@ -78,8 +78,9 @@ assetUpdates:
 
 # Tags <series>/<version> of private repositories, fetched by the core and mounted at /mnt/addons/<identifier>
 assets:
+  # A placeholder with one dummy module until the Alixea modules exist
   - identifier: alixea-generic
-    repository: alixea-erp/alixea-generic
+    repository: alixea-erp/modules-test
     tagPrefix: '${COMPONENT_VERSION}/'
     ref: '${ALIXEA_GENERIC_VERSION}'
     parameter: ALIXEA_GENERIC
