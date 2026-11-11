@@ -297,6 +297,8 @@ db_password = $ODOO_PASSWORD
 db_name = $DB
 EOF
 fi
+# Odoo 20 listens on localhost only unless told otherwise, where the probe and the proxy do not reach it
+grep -q '^http_interface' "$CONF" || sed -i '/^\[options\]/a http_interface = 0.0.0.0' "$CONF"
 
 # A run that lost its connection in the middle may have left the live database closed
 db_allow "$DB"
