@@ -136,18 +136,10 @@ WANTED=$(printf '%s' "$parts" | sha256sum | cut -c1-16)
 # parts the versions it holds. Made under another name and renamed when it is whole
 #
 
-copy_tree() { # <from> <to>: six at a time, which took 12 s against up to 45 s one after the other
+copy_tree() { # <from> <to>
   mkdir -p "$2"
-  (
-    cd "$1"
-    # NOTE! The folders first, one after the other: two copies making the same parent folder at once fail on it
-    find . -maxdepth 2 -type d -print0 | (cd "$2" && xargs -0 -r mkdir -p)
-    {
-      find . -maxdepth 2 ! -type d -print0
-      find . -mindepth 3 -maxdepth 3 -print0
-    } | xargs -0 -r -P 6 -n 40 cp -a --parents -t "$2"
-  )
-  [ "$(cd "$1" && find . -type f | wc -l)" = "$(cd "$2" && find . -type f | wc -l)" ]
+  # Without what Odoo does not need to run, a third of the files: Python compiles again, and no module imports its tests
+  tar -C "$1" --no-wildcards-match-slash --exclude=__pycache__ --exclude='addons/*/tests' -cf - . | tar -C "$2" -xf -
 }
 
 copy_code() { # <id> [id of the copy to take unchanged parts from]
