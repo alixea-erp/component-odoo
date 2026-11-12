@@ -458,5 +458,6 @@ admin_psql -c "COMMENT ON DATABASE \"$DB\" IS NULL"
 module=$(failed_module)
 reason=$([ $update_status != 0 ] && echo "${module:+module $module}" || echo "the new code could not be copied to the disk")
 reason=${reason:-the upgrade stopped, see $LOG}
-printf '%s\n%s\n' "$attempt" "$reason" >"$CODE/failed"
+# A copy that failed is tried again at the next start: the disk may have room by then
+[ $update_status = 0 ] || printf '%s\n%s\n' "$attempt" "$reason" >"$CODE/failed"
 fail "$reason"

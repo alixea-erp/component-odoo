@@ -46,6 +46,8 @@ What to do:
 
 - Fix the module or view that no longer fits the new code, then restart Odoo.
 - Or wait. A new version the next night is a new attempt. A restart with nothing changed is not.
+- If the notice says the new code could not be copied, the disk is probably full. Free some space or resize the
+  disk, then restart Odoo. That restart tries the update again.
 - For a problem found days later, restore a restore point from before the update.
 
 The half-upgraded database is kept as `<database>__alixea_failed` until an update works.
