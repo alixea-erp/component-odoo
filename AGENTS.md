@@ -62,6 +62,10 @@ speculate about platform behavior it does not describe.
   an `__manifest__.py`; Odoo ignores everything else in the folder (`.agents/`,
   Dockerfiles). In development the folder is mounted into the Odoo container at
   `/mnt/extra-addons`, so Odoo sees edits at once. Staging and production build `Dockerfile`.
+- **A module repository cloned into a top-level folder here** (a folder that holds modules, as an OCA repository
+  does) is put on `addons_path` too, ahead of the module sets, when Odoo starts. Restart Odoo after cloning one. Its
+  modules win over a set's modules of the same name. The folder name may only hold letters, digits, `.`, `_` and
+  `-`.
 - Database: PostgreSQL from the `postgres` add-on. The Odoo role's connection settings are in
   the env (`HOST`, `PORT`, `USER`, `PASSWORD`, `DATABASE`); `psql` is in the
   image, but prefer `odoo shell` for ORM-level work. Do not re-initialize the database: the init

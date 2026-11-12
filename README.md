@@ -66,6 +66,10 @@ there is no older code to go back to.
 | `/mnt/addons/<set>` | the VM | The checked module sets, read-only.                   |
 | `/home/odoo`        | `home` | Home directory of the `odoo` user.                    |
 
+A module repository cloned into a folder of `/mnt/extra-addons`, such as an OCA repository, is found too: the init
+container puts every folder that holds modules on `addons_path`, ahead of the module sets. Restart Odoo after cloning
+one. Its modules win over a set's modules of the same name.
+
 The init container writes `addons_path` in `odoo.conf` at every start. Odoo's own code is in `/opt/odoo` in the
 image.
 

@@ -164,9 +164,24 @@ copy_code() { # <id> [id of the copy to take unchanged parts from]
 
 set_addons_path() { sed -i "s#^addons_path = .*#addons_path = $1#" "$CONF"; }
 
+# This folder, then each module repository cloned into it: a folder that is not a module but holds modules. They come
+# before the sets, so the source of a set wins over its built modules while it is checked out
+own_addons() {
+  local folder name
+  printf '%s' "$EXTRA_ADDONS"
+  for folder in "$EXTRA_ADDONS"/*/; do
+    name=$(basename "$folder")
+    # NOTE! Other names are skipped: the path goes through sed and Odoo splits it on commas
+    case "$name" in *[!A-Za-z0-9._-]*) continue ;; esac
+    [ ! -f "$folder/__manifest__.py" ] && compgen -G "$folder*/__manifest__.py" >/dev/null && printf ',%s' "${folder%/}"
+  done
+  return 0
+}
+
 # Which code Odoo runs: the image and the mounts, or a copy
 use_code() { # image | <id>
-  local core sets_root addons_path=$EXTRA_ADDONS set_name
+  local core sets_root addons_path set_name
+  addons_path=$(own_addons)
   if [ "$1" = image ]; then core=$IMAGE_CODE sets_root=$SETS; else core=$CODE/$1/core sets_root=$CODE/$1/sets; fi
   for set_name in $( [ "$1" = image ] && echo "$enabled_sets" || ls "$sets_root" 2>/dev/null); do addons_path="$addons_path,$sets_root/$set_name"; done
   set_addons_path "$addons_path"
@@ -211,8 +226,8 @@ PYEOF
 # Runs with the image's code and the mounted sets, and a set that goes still has its code in the old copy.
 # click-odoo-update reads addons_path from the config only, so the path is set there
 update_database() { # <database> <id of the old copy or ''> <upgrade | hashes>
-  local database=$1 old_sets=${2:+$CODE/$2/sets} set_name modules key
-  local addons_path=$EXTRA_ADDONS
+  local database=$1 old_sets=${2:+$CODE/$2/sets} set_name modules key addons_path
+  addons_path=$(own_addons)
   for set_name in $enabled_sets; do addons_path="$addons_path,$SETS/$set_name"; done
   set_addons_path "$addons_path"
 
