@@ -1,2 +1,5 @@
 # Files of this repository that a new project does not get
 RELEASE.md
+# They build the image. A copy in the project would be built by its own GitHub build, which then wins over the held image
+/Dockerfile
+/init.sh

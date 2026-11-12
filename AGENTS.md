@@ -54,14 +54,14 @@ speculate about platform behavior it does not describe.
 
 ### This component
 
-- Odoo from the official `odoo` image (`FROM` in `Dockerfile`). Serves on
+- Odoo runs in Alixea's image of its series, built on the official `odoo` image. Serves on
   port **8069**, Odoo's default, in every stage; `hosts[].port` in `alixea.yaml` must stay 8069
   unless `http_port` is set in `odoo.conf`. Per-stage ports are not supported — the Service has
   no `targetPort`.
 - **This folder is Odoo's `addons_path`.** Each custom addon is a top-level directory here with
-  an `__manifest__.py`; Odoo ignores everything else in the folder (`.agents/`,
-  Dockerfiles). In development the folder is mounted into the Odoo container at
-  `/mnt/extra-addons`, so Odoo sees edits at once. Staging and production build `Dockerfile`.
+  an `__manifest__.py`; Odoo ignores everything else in the folder (`.agents/`).
+  In development the folder is mounted into the Odoo container at `/mnt/extra-addons`, so Odoo
+  sees edits at once. Staging and production run the same image.
 - **A module repository cloned into a top-level folder here** (a folder that holds modules, as an OCA repository
   does) is put on `addons_path` too, ahead of the module sets, when Odoo starts. Restart Odoo after cloning one. Its
   modules win over a set's modules of the same name. The folder name may only hold letters, digits, `.`, `_` and
