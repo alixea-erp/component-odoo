@@ -33,7 +33,10 @@ a private repository. The platform fetches the chosen tag and mounts it at `/mnt
 - **Switched on:** it updates with that save.
 
 An update restarts Odoo. The init container copies the database, upgrades the modules whose files changed and
-records the new version. Versions only move forward. A major upgrade such as `18.0` to `19.0` is not automatic.
+records the new version. Versions only move forward.
+
+A major upgrade such as `18.0` to `19.0` is not automatic, and changing the series in `alixea.yaml` does not do it.
+That update fails and Odoo does not start until the series is changed back. The database is put back as it was.
 
 ## When an update fails
 

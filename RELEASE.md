@@ -18,8 +18,8 @@ restarts the deployments that update automatically, so do not build more often t
 
 1. Run the **Pre-Build Components** workflow by hand on `main`. It builds `18.0`, `19.0` and `20.0`.
 2. Open the admin **Settings** page and find **Automatic updates**.
-3. Wait until **Latest build** shows the time of your build. This takes a few minutes. Approving earlier approves
-   the old build again.
+3. When the workflow is done, click **Check now**. **Latest build** then shows the time of your build. Approving
+   earlier approves the old build again.
 4. Click **Approve** for each image. Deployments update at 01:00 UTC, or at once with **Push now**.
 5. Check one deployment of each series. Odoo answers and there is no notice.
 
