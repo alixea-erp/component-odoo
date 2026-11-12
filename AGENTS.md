@@ -1,12 +1,14 @@
 ## Skills
 
-**This component runs Odoo 18.0. Odoo's skills below describe Odoo master**, and
-parts of them are wrong for 18.0, e.g. `security/ir.access.csv` (18.0 uses
-`ir.model.access.csv` and `ir.rule`), `models.Constraint` (18.0 uses
-`_sql_constraints`), `fields.Domain` and the default test tags. Read
-`.agents/skills/odoo-18/SKILL.md` before using them; where they disagree, it wins.
-Check any API you are unsure of against the source in the Odoo container,
-`/var/lib/odoo/code/current/odoo` (the code that runs; `odoo --version` says which series).
+**First find out which Odoo runs: `odoo --version` in the Odoo container** (18.0,
+19.0 or 20.0, the component version of the deployment). Odoo's skills below
+describe Odoo 20.0, and parts of them are wrong for 18.0 and 19.0, e.g.
+`security/ir.access.csv` (18.0 and 19.0 use `ir.model.access.csv` and
+`ir.rule`), the default test tags and the Owl 3 hooks (18.0 and 19.0 run Owl 2).
+Read the skill of that series, `.agents/skills/odoo-18/SKILL.md`, `odoo-19` or
+`odoo-20`, before using them; where they disagree, it wins. Check any API you
+are unsure of against the source in the Odoo container,
+`/var/lib/odoo/code/current/odoo` (the code that runs).
 
 The skills live in `.agents/skills/`. Agents that scan that directory (Codex,
 OpenCode, Cursor, Copilot) list them when started in this folder. If yours does
@@ -14,7 +16,7 @@ not list them, read the matching `SKILL.md` before changing any addon file:
 
 | Skill                                         | Read before touching                                                                                                             |
 | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `.agents/skills/odoo-18/SKILL.md`             | any addon file, together with the skill below that covers it                                                                     |
+| `.agents/skills/odoo-<series>/SKILL.md`       | any addon file, together with the skill below that covers it: `odoo-18`, `odoo-19` or `odoo-20`, by `odoo --version`             |
 | `.agents/skills/odoo-guidelines/SKILL.md`     | anything in an addon outside `static/`: manifest, models, fields, controllers, XML views and data, reports, access rights, tests |
 | `.agents/skills/odoo-web-guidelines/SKILL.md` | anything under an addon's `static/`: JavaScript, Owl templates, SCSS                                                             |
 | `.agents/skills/odoo-security/SKILL.md`       | `sudo()`, raw SQL, `eval`, controllers, public or RPC-callable methods, access rights                                            |
@@ -28,11 +30,13 @@ compiles SCSS with libsass, which rejects parts of modern Sass and CSS syntax;
 the error shows only in the browser, and it breaks the styling of the whole
 bundle. The skill lists the constructs that fail.
 
-`odoo-18` and `odoo-scss-check` are maintained with this component. The other
-four are Odoo's own, copied unchanged from `skills/` on the master branch of
-Odoo's repository; never edit them, put corrections in `odoo-18`. Odoo's
-skills describe addons as living in `addons/*`; in this component the addons
-are the top-level directories of this folder (see below).
+`odoo-18`, `odoo-19`, `odoo-20` and `odoo-scss-check` are maintained with this
+component. The other four are Odoo's own, copied unchanged from `skills/` on the
+`20.0` branch of Odoo's repository; never edit them, put corrections in the
+skill of the series. To update them, copy the four folders again from that
+branch and check each series' skill against what changed. Odoo's skills
+describe addons as living in `addons/*`; in this component the addons are the
+top-level directories of this folder (see below).
 
 ## Alixea
 
@@ -50,7 +54,7 @@ speculate about platform behavior it does not describe.
 
 ### This component
 
-- Odoo from the official `odoo` image (`FROM` in `Dockerfile` and `Dockerfile.dev`). Serves on
+- Odoo from the official `odoo` image (`FROM` in `Dockerfile`). Serves on
   port **8069**, Odoo's default, in every stage; `hosts[].port` in `alixea.yaml` must stay 8069
   unless `http_port` is set in `odoo.conf`. Per-stage ports are not supported — the Service has
   no `targetPort`.

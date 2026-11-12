@@ -9,11 +9,11 @@ description: >-
 
 # Checking SCSS against Odoo's compiler
 
-Odoo 18 compiles SCSS with **libsass** (LibSass 3.6, deprecated since 2020), not
-Dart Sass. It compiles all SCSS in an asset bundle as one source, so one error in
-an addon removes the compiled styles of the whole bundle, e.g. the entire backend
-in `web.assets_backend`. The error then shows only in the browser and the server
-log; editing the file itself raises nothing.
+Odoo 18, 19 and 20 compile SCSS with **libsass** (LibSass 3.6, deprecated since
+2020), not Dart Sass. It compiles all SCSS in an asset bundle as one source, so
+one error in an addon removes the compiled styles of the whole bundle, e.g. the
+entire backend in `web.assets_backend`. The error then shows only in the browser
+and the server log; editing the file itself raises nothing.
 
 ## Run the check after every SCSS change
 
@@ -33,7 +33,7 @@ database from `/etc/odoo/odoo.conf` and writes nothing.
   reports uninstalled addons with `SKIP`; install the addon to check it.
 - Manifest `assets` changes are picked up without upgrading the module.
 - If the agent runs outside the Odoo container, prefix the same command with
-  `diploi exec app --`.
+  `diploi exec odoo --` (the Odoo component's identifier in `alixea.yaml`).
 
 Do not report SCSS work as done until the check passes.
 

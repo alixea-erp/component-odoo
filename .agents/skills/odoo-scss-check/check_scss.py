@@ -173,7 +173,7 @@ def main():
               file=sys.stderr)
         return 2
 
-    odoo.tools.config.parse_config(['-c', args.config])
+    odoo.tools.config.parse_config(['-c', args.config], setup_logging=True)
     # The server logs every compile error with the full bundle file list;
     # this script prints a shorter version of the same error instead.
     logging.basicConfig(level=logging.ERROR)
@@ -184,6 +184,9 @@ def main():
         or odoo.tools.config['db_name']
         or os.environ.get('DATABASE')
     )
+    # Since 19.0 the option holds a list of databases.
+    if isinstance(database, list):
+        database = database[0]
     if not database:
         print('No database given; pass --database.', file=sys.stderr)
         return 2
