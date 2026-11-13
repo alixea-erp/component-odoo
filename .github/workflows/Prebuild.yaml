@@ -94,7 +94,7 @@ jobs:
       - name: Tell Slack it failed
         if: failure()
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ODOO_RELEASES_WEBHOOK_URL }}
           SERIES: ${{ matrix.series }}
         run: |
           [ -n "$SLACK_WEBHOOK_URL" ] || exit 0

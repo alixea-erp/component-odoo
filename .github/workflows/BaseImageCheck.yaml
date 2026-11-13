@@ -47,7 +47,7 @@ jobs:
       - name: Tell Slack it failed
         if: failure()
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ODOO_RELEASES_WEBHOOK_URL }}
         run: |
           [ -n "$SLACK_WEBHOOK_URL" ] || exit 0
           text="The check for new Odoo images failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
