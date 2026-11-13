@@ -1,8 +1,9 @@
 name: Pre-Build Components
 
-# The images of the three Odoo series are built by hand ("Run workflow"), on the day the Enterprise fork is tagged:
-# a build on every push or every night would be a new digest, and a restart, for every deployment each time.
-# BaseImageCheck.yaml says in Slack when Odoo has published a new image. A push to main only builds main, for trying.
+# The images of the Odoo series. BaseImageCheck.yaml starts this for the series whose Odoo image changed, so a series
+# gets a new digest only when Odoo published one; a build every night would be a new digest for nothing. "Run
+# workflow" builds them by hand, after a change to Dockerfile or init.sh. Nothing reaches a deployment before an admin
+# approves the build. A push to main only builds main, for trying.
 on:
   push:
     branches: [main]
@@ -14,6 +15,10 @@ on:
       - alixea.yaml
       - .alixeaignore
   workflow_dispatch:
+    inputs:
+      series:
+        description: all, or a JSON list such as ["19.0", "20.0"]
+        default: all
 
 env:
   REGISTRY: public.ecr.aws
@@ -31,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        series: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["18.0", "19.0", "20.0"]') || fromJSON('["19.0"]') }}
+        series: ${{ github.event_name != 'workflow_dispatch' && fromJSON('["19.0"]') || (inputs.series == 'all' && fromJSON('["18.0", "19.0", "20.0"]') || fromJSON(inputs.series)) }}
     env:
       # One build is both the production and the development image: <tag> and <tag>-dev.
       TAG: ${{ github.event_name == 'workflow_dispatch' && matrix.series || 'main' }}
@@ -85,3 +90,13 @@ jobs:
             org.opencontainers.image.base.name=docker.io/library/odoo:${{ matrix.series }}
             org.opencontainers.image.base.digest=${{ steps.base.outputs.digest }}
             org.alixea.odoo.release=${{ steps.release.outputs.date }}
+
+      - name: Tell Slack it failed
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SERIES: ${{ matrix.series }}
+        run: |
+          [ -n "$SLACK_WEBHOOK_URL" ] || exit 0
+          text="The build of the Odoo $SERIES image failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          jq -n --arg text "$text" '{text: $text}' | curl --fail --silent --show-error -X POST -H 'Content-Type: application/json' -d @- "$SLACK_WEBHOOK_URL"

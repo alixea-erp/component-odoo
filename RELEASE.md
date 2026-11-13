@@ -13,15 +13,20 @@ If a change needs both, release the image first.
 
 ## A new image
 
-Build one after a change to `Dockerfile` or `init.sh`, or when Slack says Odoo published a new image. Every build
-restarts the deployments that update automatically, so do not build more often than needed.
+**When Odoo publishes a new image, you only approve.** Every night at 05:00 UTC, **Base Image Check** builds the
+series whose Odoo image changed. Twice a day, at 06:30 and 18:30 UTC, the Enterprise fork releases Enterprise of the
+same date. Then Slack says the series is ready to try. Start at step 2.
 
-1. Run the **Pre-Build Components** workflow by hand on `main`. It builds `18.0`, `19.0` and `20.0`. When Odoo
-   published the image, also release Enterprise the same day (below).
+After a change to `Dockerfile` or `init.sh`, build by hand: run **Pre-Build Components** on `main`. It builds every
+series, or the list you give, such as `["19.0"]`. Each build is a new digest, and approving it restarts the
+deployments that update automatically, so do not build more often than needed.
+
+1. Wait for the build. Slack says so when Odoo published the image, and says when a build or a release failed.
 2. Open the admin **Settings** page and find **Automatic updates**.
 3. When the workflow is done, click **Check now**. **Latest build** then shows the time of your build. Approving
    earlier approves the old build again.
-4. Click **Approve** for each image. Deployments update at 01:00 UTC, or at once with **Push now**.
+4. Click **Approve** for each image. When Odoo published it, also set the Enterprise version from the Slack message
+   as **Latest**, so image and Enterprise move together. Deployments update at 01:00 UTC, or at once with **Push now**.
 5. Check one deployment of each series. Odoo answers and there is no notice.
 
 Approval is per environment. Repeat steps 2 to 5 in every environment that should get the build.
@@ -52,9 +57,9 @@ The cores download the module sets from a bucket, not from GitHub. Each version 
 
 - **Alixea modules, Alixea Finance:** push a tag such as `19.0/1.4.0` on the series branch. The release runs by
   itself.
-- **Odoo Enterprise:** run **Release** in `alixea-erp/odoo-enterprise`. It releases every series, or the one you
-  pick. It takes Enterprise at the date of our newest image of each series, so run Pre-Build first when Odoo
-  published a new image.
+- **Odoo Enterprise:** released by itself after an image of a new Odoo date is built (above). It takes Enterprise
+  at the date of our newest image of each series. By hand: run **Release** in `alixea-erp/odoo-enterprise`, for every
+  series or one.
 - **OCA:** add the module to `<series>.txt` in `alixea-erp/oca` (`+name` also installs it when the set is turned on),
   then run **Release** with the series. Tick **newest** to move every repository to its newest commit. The run's
   summary names the dependencies it added and the Python packages the image may lack.
