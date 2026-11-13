@@ -52,6 +52,13 @@ jobs:
         id: base
         run: echo "digest=$(docker buildx imagetools inspect odoo:${{ matrix.series }} --format '{{.Manifest.Digest}}')" >> "$GITHUB_OUTPUT"
 
+      # The Enterprise release takes Enterprise at this date, so both stay on the same day (docs/OdooModules.md, phase 4)
+      - name: Release date of Odoo's image
+        id: release
+        uses: alixea-erp/action-module-set/odoo-release@v1
+        with:
+          series: ${{ matrix.series }}
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -70,3 +77,4 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.base.name=docker.io/library/odoo:${{ matrix.series }}
             org.opencontainers.image.base.digest=${{ steps.base.outputs.digest }}
+            org.alixea.odoo.release=${{ steps.release.outputs.date }}
