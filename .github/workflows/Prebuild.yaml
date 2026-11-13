@@ -6,6 +6,13 @@ name: Pre-Build Components
 on:
   push:
     branches: [main]
+    # What is not in the image: a push that changes only these builds nothing
+    paths-ignore:
+      - '**.md'
+      - '.agents/**'
+      - '.alixea/**'
+      - alixea.yaml
+      - .alixeaignore
   workflow_dispatch:
 
 env:
@@ -19,7 +26,7 @@ permissions:
 
 jobs:
   image:
-    name: Odoo ${{ matrix.series }}
+    name: ${{ github.event_name == 'workflow_dispatch' && format('Odoo {0}', matrix.series) || format('main, a test image on Odoo {0}', matrix.series) }}
     runs-on: ubuntu-24.04-arm
     strategy:
       fail-fast: false
