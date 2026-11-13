@@ -17,7 +17,7 @@ Build one after a change to `Dockerfile` or `init.sh`, or when Slack says Odoo p
 restarts the deployments that update automatically, so do not build more often than needed.
 
 1. Run the **Pre-Build Components** workflow by hand on `main`. It builds `18.0`, `19.0` and `20.0`. When Odoo
-   published the image, also release Enterprise for each series the same day (below).
+   published the image, also release Enterprise the same day (below).
 2. Open the admin **Settings** page and find **Automatic updates**.
 3. When the workflow is done, click **Check now**. **Latest build** then shows the time of your build. Approving
    earlier approves the old build again.
@@ -52,8 +52,9 @@ The cores download the module sets from a bucket, not from GitHub. Each version 
 
 - **Alixea modules, Alixea Finance:** push a tag such as `19.0/1.4.0` on the series branch. The release runs by
   itself.
-- **Odoo Enterprise:** run **Release** in `alixea-erp/odoo-enterprise` with the series. It takes Enterprise at the
-  date of our newest image of that series, so run Pre-Build first when Odoo published a new image.
+- **Odoo Enterprise:** run **Release** in `alixea-erp/odoo-enterprise`. It releases every series, or the one you
+  pick. It takes Enterprise at the date of our newest image of each series, so run Pre-Build first when Odoo
+  published a new image.
 - **OCA:** add the module to `<series>.txt` in `alixea-erp/oca` (`+name` also installs it when the set is turned on),
   then run **Release** with the series. Tick **newest** to move every repository to its newest commit. The run's
   summary names the dependencies it added and the Python packages the image may lack.
