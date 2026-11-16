@@ -150,7 +150,7 @@ describe_pod() {
     esac
   done
   [ -z "$off" ] || log "Module sets off:$off"
-  log "Own modules from: $(own_addons | sed 's/,/, /g')"
+  if [ -d "$EXTRA_ADDONS" ]; then log "Own modules from: $(own_addons | sed 's/,/, /g')"; else log "Own modules: none, $EXTRA_ADDONS is not mounted"; fi
 }
 
 # For the log: what this pod has that the recorded version did not

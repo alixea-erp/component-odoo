@@ -22,11 +22,11 @@ series, or the list you give, such as `["19.0"]`. Each build is a new digest, an
 deployments that update automatically, so do not build more often than needed.
 
 1. Wait for the build. Slack says so when Odoo published the image, and says when a build or a release failed.
-2. Open the admin **Settings** page and find **Automatic updates**.
-3. When the workflow is done, click **Check now**. **Latest build** then shows the time of your build. Approving
+2. Open the admin **Updates** page.
+3. When the workflow is done, click **Check images**. **Latest** then shows the time of your build. Approving
    earlier approves the old build again.
-4. Click **Approve** for each image. When Odoo published it, also set the Enterprise version from the Slack message
-   as **Latest**, so image and Enterprise move together. Deployments update at 01:00 UTC, or at once with **Push now**.
+4. Click **Approve** for each image. When Odoo published it, also click **Approve** for the Enterprise version from
+   the Slack message, so image and Enterprise move together. Deployments update at 01:00 UTC, or at once with **Push now**.
 5. Check one deployment of each series. Odoo answers and there is no notice.
 
 Approval is per environment. Repeat steps 2 to 5 in every environment that should get the build.
@@ -65,7 +65,7 @@ The cores download the module sets from a bucket, not from GitHub. Each version 
   Tick **newest** to move every repository to its newest commit. The run's summary names the Python packages the
   modules need. One that the image lacks goes into the `Dockerfile` here, pinned, before the modules are offered.
 
-Then set the version as **Latest** on the admin **Settings** page. Deployments that update automatically move to it at
+Then click **Approve** for the version on the admin **Updates** page. Deployments that update automatically move to it at
 01:00 UTC, or at once with **Push now**.
 
 The release itself is the action `alixea-erp/action-module-set`. Its README says how to set up a new set

@@ -35,12 +35,18 @@ RUN pip install --break-system-packages --no-cache-dir click-odoo-contrib==1.24
 # What modules of the OCA set need and Odoo's image lacks (alixea-erp/oca; a release's summary names them). Odoo
 # refuses to install a module whose package is missing. numpy stays below 2 for numpy-financial 1.0.0, the newest
 # that OCA's account_loan allows
+# NOTE! pandas brings the pip package tzdata, which is removed again. Its list of zones has old names that Ubuntu's
+# own zone files no longer have, and Odoo 20.0 stops at the first one pytz cannot open. pandas uses Ubuntu's files
 RUN pip install --break-system-packages --no-cache-dir \
       numpy==1.26.4 \
       numpy-financial==1.0.0 \
       openupgradelib==3.13.7 \
       pandas==2.2.3 \
-      plaid-python==46.0.0
+      plaid-python==46.0.0 && \
+    pip uninstall --break-system-packages --yes tzdata
+
+# Every zone Python lists and pytz knows opens, as Odoo 20.0 needs to start
+RUN python3 -c 'import pytz, zoneinfo; [pytz.timezone(name) for name in zoneinfo.available_timezones() if name in pytz.all_timezones_set]'
 
 COPY --chmod=755 init.sh /init.sh
 
