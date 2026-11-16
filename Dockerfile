@@ -49,7 +49,8 @@ FROM scratch
 COPY --from=odoo / /
 
 ARG ODOO_SERIES=19.0
-ENV LANG=en_US.UTF-8 \
+# NOTE! Not Odoo's en_US.UTF-8: its image does not have that locale, and psql (a Perl script) says so at every call
+ENV LANG=C.UTF-8 \
     ODOO_VERSION=${ODOO_SERIES} \
     ODOO_RC=/etc/odoo/odoo.conf \
     PYTHONPATH=/opt/odoo

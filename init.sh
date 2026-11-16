@@ -113,11 +113,12 @@ set_parameter() { # <key> <value> [database]
 #
 
 set_ref() { echo " ${DIPLOI_MODULE_SET_REFS:-} " | sed -n "s/.* $1=\([^ ]*\) .*/\1/p"; }
-manifest_value() { # <set folder> <installModules|modules>
+manifest_value() { # <set folder> <installModules|modules|tag>
   python3 - "$1/manifest.json" "$2" <<'PYEOF'
 import json, os, sys
 manifest = json.load(open(sys.argv[1])) if os.path.exists(sys.argv[1]) else {}
-print(",".join(manifest.get(sys.argv[2], [])))
+value = manifest.get(sys.argv[2], [])
+print(value if isinstance(value, str) else ",".join(value))
 PYEOF
 }
 
@@ -130,6 +131,44 @@ done
 parts="core=${ODOO_IMAGE:-unknown}"
 for set_name in $enabled_sets; do parts="$parts"$'\n'"set:$set_name=$(set_ref "$set_name")"; done
 WANTED=$(printf '%s' "$parts" | sha256sum | cut -c1-16)
+
+# A version as it was released, where a folder's name has a hash at its end
+plain_version() { sed -E 's/-[0-9a-f]{16}$//' <<<"$1"; }
+
+# For the log: Odoo, each set with its version and the number of its modules, and the folders of own modules
+describe_pod() {
+  local entry set_name image=${ODOO_IMAGE:-unknown} off="" tag
+  log "$(PYTHONPATH=$IMAGE_CODE odoo --version 2>/dev/null || echo Odoo), image ${image##*@}"
+  for entry in ${DIPLOI_MODULE_SETS:-}; do
+    set_name=${entry%%=*}
+    case " $enabled_sets " in
+      *" $set_name "*)
+        tag=$(manifest_value "$SETS/$set_name" tag)
+        log "Module set $set_name: ${tag:-$(plain_version "$(set_ref "$set_name")")}, $(manifest_value "$SETS/$set_name" modules | tr ',' '\n' | grep -c . || true) modules"
+        ;;
+      *) off="$off $set_name" ;;
+    esac
+  done
+  [ -z "$off" ] || log "Module sets off:$off"
+  log "Own modules from: $(own_addons | sed 's/,/, /g')"
+}
+
+# For the log: what this pod has that the recorded version did not
+describe_changes() {
+  local old=$CODE/$RECORDED/parts name before now label out=""
+  [ -f "$old" ] || { echo "the database has no record of its code on this disk"; return 0; }
+  for name in $({ cut -d= -f1 "$old"; cut -d= -f1 <<<"$parts"; } | sort -u); do
+    before=$(grep "^$name=" "$old" | cut -d= -f2- || true)
+    now=$(grep "^$name=" <<<"$parts" | cut -d= -f2- || true)
+    [ "$before" != "$now" ] || continue
+    label="module set ${name#set:}"
+    if [ "$name" = core ]; then out="$out, a new Odoo image"
+    elif [ -z "$before" ]; then out="$out, $label added"
+    elif [ -z "$now" ]; then out="$out, $label removed"
+    else out="$out, $label from $(plain_version "$before") to $(plain_version "$now")"; fi
+  done
+  echo "${out#, }"
+}
 
 #
 # The copy of the code, $CODE/<id>: core/ is what PYTHONPATH names (the image's /opt/odoo), sets/<set> the sets,
@@ -285,6 +324,7 @@ failed_module() { grep -o 'Loading module [a-z0-9_]* ' "$LOG" 2>/dev/null | tail
 # The start
 #
 
+describe_pod
 log "Waiting for PostgreSQL"
 until pg_isready -d postgres >/dev/null 2>&1; do sleep 2; done
 
@@ -349,7 +389,7 @@ if ! db_exists "$DB"; then
     log "ERROR: a database named $NEW exists that this script did not make, and the new database is built under that name"
     exit 1
   fi
-  log "Creating the database (this can take a few minutes)"
+  log "No database named $DB yet: creating it and keeping a copy of this code (this can take a few minutes)"
   copy_code "$WANTED" &
   copy_pid=$!
 
@@ -375,7 +415,7 @@ if ! db_exists "$DB"; then
   fi
   db_rename "$NEW" "$DB"
   admin_psql -c "COMMENT ON DATABASE \"$DB\" IS NULL"
-  log "Odoo init complete: a new database"
+  log "Odoo init complete: a new database, after $SECONDS s"
   exit 0
 fi
 
@@ -386,7 +426,7 @@ fi
 if [ -n "$RECORDED" ] && [ "$RECORDED" = "$WANTED" ] && [ -d "$CODE/$RECORDED" ]; then
   use_code image
   rm -f "$CODE/failed"
-  log "Odoo init complete: nothing to update"
+  log "Odoo init complete: the database is on this version, nothing to update"
   exit 0
 fi
 
@@ -411,9 +451,12 @@ fail() { # <message>: Odoo runs the old code, or the start stops when there is n
 
 # The same attempt failed before and nothing changed since: a restart does not cost an upgrade
 if [ "$(cat "$CODE/failed" 2>/dev/null | head -1)" = "$attempt" ]; then
+  log "This update failed before and nothing has changed since: not trying it again"
   fail "$(sed -n 2p "$CODE/failed")"
 fi
 
+log "Updating: $(describe_changes)"
+step_start=$SECONDS
 log "Updating: cloning the database"
 if ! db_drop_ours "$BEFORE"; then
   fail "a database named $BEFORE is in the way of the clone"
@@ -422,7 +465,8 @@ if ! db_clone "$DB" "$BEFORE"; then
   fail "the database could not be cloned"
 fi
 
-log "Updating: upgrading the database and copying the new code"
+log "Updating: the database is cloned, after $((SECONDS - step_start)) s. Upgrading it and copying the new code"
+step_start=$SECONDS
 if [ $HAS_OLD_CODE = true ]; then copy_code "$WANTED" "$RECORDED" & else copy_code "$WANTED" & fi
 copy_pid=$!
 
@@ -430,11 +474,12 @@ use_code image
 # NOTE! Not "update_database ... || status=$?": inside an || list bash ignores set -e in the whole function, and a
 # failed upgrade followed by a step that works would count as done
 set +e
+# To the container's log, and to a file for the name of the module that failed
 (
   set -e
   update_database "$DB" "$([ $HAS_OLD_CODE = true ] && echo "$RECORDED")" upgrade
-) >"$LOG" 2>&1
-update_status=$?
+) 2>&1 | tee "$LOG"
+update_status=${PIPESTATUS[0]}
 wait $copy_pid
 copy_status=$?
 set -e
@@ -445,11 +490,14 @@ if [ $update_status = 0 ] && [ $copy_status = 0 ]; then
   db_drop_failed
   [ "$RECORDED" = "$WANTED" ] || [ -z "$RECORDED" ] || rm -rf "${CODE:?}/$RECORDED"
   rm -f "$CODE/failed"
-  log "Odoo init complete: updated"
+  # click-odoo-update names the modules whose files changed
+  upgraded=$(sed -n 's/.*Updating addons for their hash changed: \(.*\)\.$/\1/p' "$LOG" | tail -n 1)
+  log "Updating: upgraded ${upgraded:-no module, none had changed}"
+  log "Odoo init complete: updated, the upgrade took $((SECONDS - step_start)) s"
   exit 0
 fi
 
-tail -n 30 "$LOG" || true
+log "Updating: failed after $((SECONDS - step_start)) s. Putting the database back"
 rm -rf "${CODE:?}/$WANTED"
 db_set_live_aside
 db_rename "$BEFORE" "$DB"

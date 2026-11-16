@@ -56,6 +56,9 @@ What to do:
   disk, then restart Odoo. That restart tries the update again.
 - For a problem found days later, restore a restore point from before the update.
 
+The whole output of the upgrade is in the log of the `odoo-init` container. The last one is also kept in
+`/var/lib/odoo/update.log` until the next update.
+
 The half-upgraded database is kept as `<database>__alixea_failed` until an update works.
 
 The init script never drops the database Odoo uses. It only drops databases it made itself, named
