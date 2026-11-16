@@ -9,8 +9,8 @@ It needs PostgreSQL, which comes as an add-on (`alixea-erp/addon-postgres`).
 
 ## Login
 
-Log in as `admin`. The password is `INITIAL_ADMIN_PASSWORD`, shown in the deployment's **Options** tab. It is also
-Odoo's master password for the database manager.
+Log in as `admin`. The password is under **Admin login** in the deployment's **Setup** tab. It is also Odoo's master
+password for the database manager. It is set when the database is created, so change it in Odoo afterwards.
 
 ## First start
 
@@ -24,7 +24,10 @@ An init container runs `/init.sh` from the image before Odoo starts. On the firs
 ## Module sets and updates
 
 The **Modules** settings list the module sets: Alixea modules, Alixea Finance, Odoo Enterprise and OCA. Each set is
-a private repository. The platform fetches the chosen tag and mounts it at `/mnt/addons/<set>`.
+a private repository. The platform fetches the chosen version and mounts it at `/mnt/addons/<set>`.
+
+Odoo Enterprise and OCA modules cannot be on together. Turn one off before turning the other on. The OCA set
+installs nothing by itself: its modules appear under Apps.
 
 **Update automatically** decides how the deployment follows new versions:
 
@@ -78,14 +81,16 @@ one. Its modules win over a set's modules of the same name.
 The init container writes `addons_path` in `odoo.conf` at every start. Odoo's own code is in `/opt/odoo` in the
 image.
 
-## Environment variables
+## Settings
 
-| Variable                 | Description                                     |
-| ------------------------ | ----------------------------------------------- |
-| `INITIAL_ADMIN_PASSWORD` | Password of `admin` and Odoo's master password. |
-| `DATABASE`               | Database name. Default `odoo`.                  |
-| `USER`                   | PostgreSQL role Odoo uses. Default `odoo`.      |
-| `PASSWORD`               | Password of that role.                          |
+They are in the deployment's **Setup** tab, and reach the container as environment variables of the same name.
+
+| Setting                 | Variable                 | Description                                                     |
+| ----------------------- | ------------------------ | --------------------------------------------------------------- |
+| Admin login, Password   | `INITIAL_ADMIN_PASSWORD` | Password of `admin` and Odoo's master password.                 |
+| Database, Database name | `DATABASE`               | Default `odoo`. With another name Odoo starts on that database. |
+| Database, Role          | `USER`                   | PostgreSQL role Odoo uses. Default `odoo`.                      |
+| Database, Role password | `PASSWORD`               | Password of that role. Applied at every start.                  |
 
 `HOST`, `PORT`, `POSTGRES_USER` and `POSTGRES_PASSWORD` come from the PostgreSQL add-on.
 

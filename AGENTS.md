@@ -71,7 +71,7 @@ speculate about platform behavior it does not describe.
   image, but prefer `odoo shell` for ORM-level work. Do not re-initialize the database: the init
   container records first-time setup in the `diploi_parameters` table and skips it afterwards.
 - Login is `admin` with `INITIAL_ADMIN_PASSWORD`, which is also the master password of the
-  database manager. It is a secret: point the user to the deployment's **Environment** tab, never
+  database manager. It is a secret: point the user to **Admin login** in the deployment's **Setup** tab, never
   print it.
 - The container runs as `odoo` (uid/gid 1000). `/var/lib/odoo` (filestore, sessions) and
   `/home/odoo` are persistent volumes, not part of the repository.

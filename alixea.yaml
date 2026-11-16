@@ -29,6 +29,17 @@ storage:
     sizeMiB: 2048
 
 parameterGroups:
+  - name: Admin login
+    identifier: admin
+    description: Log in to Odoo as "admin" with this password. It is set when the database is created, so change it in Odoo afterwards. It is also Odoo's master password
+    parameters:
+      - name: Password
+        identifier: INITIAL_ADMIN_PASSWORD
+        type: secret
+        defaultValue: '${generate-random-password:12}'
+        # It is only read at the first start, an edit later would change nothing
+        readOnly: true
+
   - name: Modules
     identifier: modules
     description: Module sets and their updates. Unchecking a set uninstalls its modules and their data
@@ -58,6 +69,8 @@ parameterGroups:
         identifier: ENTERPRISE
         type: boolean
         defaultValue: false
+        # One or the other: the console lets neither be turned on while the other is on
+        excludes: [OCA]
       - name: Odoo Enterprise version
         identifier: ENTERPRISE_VERSION
         type: assetVersion
@@ -70,6 +83,23 @@ parameterGroups:
         identifier: OCA_VERSION
         type: assetVersion
         asset: oca
+
+  - name: Database
+    identifier: database
+    description: Odoo's database and role on the PostgreSQL add-on. With another name Odoo starts on that database, and creates it when it does not exist
+    parameters:
+      - name: Database name
+        identifier: DATABASE
+        type: string
+        defaultValue: odoo
+      - name: Role
+        identifier: USER
+        type: string
+        defaultValue: odoo
+      - name: Role password
+        identifier: PASSWORD
+        type: secret
+        defaultValue: '${generate-random-password:16}'
 
 # The image is held too: it moves with the module sets, to the build an admin approved, in one restart
 assetUpdates:
@@ -99,18 +129,6 @@ assets:
     tagPrefix: '${COMPONENT_VERSION}/'
     ref: '${OCA_VERSION}'
     parameter: OCA
-
-environmentVariables:
-  - identifier: INITIAL_ADMIN_PASSWORD
-    defaultValue: '${generate-random-password:12}'
-    type: secret
-  - identifier: DATABASE
-    defaultValue: "odoo"
-  - identifier: USER
-    defaultValue: "odoo"
-  - identifier: PASSWORD
-    defaultValue: '${generate-random-password:16}'
-    type: secret
 
 dependencies:
   - identifier: postgres
