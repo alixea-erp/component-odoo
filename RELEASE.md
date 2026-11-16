@@ -60,9 +60,9 @@ The cores download the module sets from a bucket, not from GitHub. Each version 
 - **Odoo Enterprise:** released by itself after an image of a new Odoo date is built (above). It takes Enterprise
   at the date of our newest image of each series. By hand: run **Release** in `alixea-erp/odoo-enterprise`, for every
   series or one.
-- **OCA:** add the module to `<series>.txt` in `alixea-erp/oca` (`+name` also installs it when the set is turned on),
-  then run **Release** with the series. Tick **newest** to move every repository to its newest commit. The run's
-  summary names the dependencies it added and the Python packages the image may lack.
+- **OCA:** edit `<series>.txt` in `alixea-erp/oca` (its README has the format), then run **Release** with the series.
+  Tick **newest** to move every repository to its newest commit. The run's summary names the Python packages the
+  modules need. One that the image lacks goes into the `Dockerfile` here, pinned, before the modules are offered.
 
 Then set the version as **Latest** on the admin **Settings** page. Deployments that update automatically move to it at
 01:00 UTC, or at once with **Push now**.

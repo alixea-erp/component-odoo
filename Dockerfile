@@ -32,6 +32,16 @@ RUN set -eux; \
 # never removed, and versions are pinned: after a failed update the old code runs on the new image
 RUN pip install --break-system-packages --no-cache-dir click-odoo-contrib==1.24
 
+# What modules of the OCA set need and Odoo's image lacks (alixea-erp/oca; a release's summary names them). Odoo
+# refuses to install a module whose package is missing. numpy stays below 2 for numpy-financial 1.0.0, the newest
+# that OCA's account_loan allows
+RUN pip install --break-system-packages --no-cache-dir \
+      numpy==1.26.4 \
+      numpy-financial==1.0.0 \
+      openupgradelib==3.13.7 \
+      pandas==2.2.3 \
+      plaid-python==46.0.0
+
 COPY --chmod=755 init.sh /init.sh
 
 # One layer: moving Odoo above would otherwise ship its 1.3 GB twice, once in the layer it came in
