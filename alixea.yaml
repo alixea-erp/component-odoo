@@ -31,7 +31,7 @@ storage:
 parameterGroups:
   - name: Admin login
     identifier: admin
-    description: Log in to Odoo as "admin" with this password. It is set when the database is created, so change it in Odoo afterwards. It is also Odoo's master password
+    description: The user is "admin". Change the password in Odoo after the first login
     parameters:
       - name: Password
         identifier: INITIAL_ADMIN_PASSWORD
@@ -42,13 +42,13 @@ parameterGroups:
 
   - name: Modules
     identifier: modules
-    description: Module sets and their updates. Unchecking a set uninstalls its modules and their data
+    description: Turning a set off uninstalls its modules and deletes their data
     parameters:
       - name: Update automatically
         identifier: AUTO_UPDATE
         type: boolean
         defaultValue: true
-        description: Odoo and the module sets move to the latest released versions at night
+        description: Recommended. Keeps Odoo and its modules secure and up to date
       - name: Alixea modules
         identifier: ALIXEA_GENERIC
         type: boolean
@@ -86,7 +86,7 @@ parameterGroups:
 
   - name: Database
     identifier: database
-    description: Odoo's database and role on the PostgreSQL add-on. With another name Odoo starts on that database, and creates it when it does not exist
+    description: A new database name starts Odoo on a new, empty database
     parameters:
       - name: Database name
         identifier: DATABASE
