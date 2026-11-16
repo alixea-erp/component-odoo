@@ -32,17 +32,20 @@ RUN set -eux; \
 # never removed, and versions are pinned: after a failed update the old code runs on the new image
 RUN pip install --break-system-packages --no-cache-dir click-odoo-contrib==1.24
 
-# What modules of the OCA set need and Odoo's image lacks (alixea-erp/oca; a release's summary names them). Odoo
-# refuses to install a module whose package is missing. numpy stays below 2 for numpy-financial 1.0.0, the newest
-# that OCA's account_loan allows
+# What modules of the sets need and Odoo's image lacks. Odoo refuses to install a module whose package is missing.
+# For OCA (alixea-erp/oca, a release's summary names them): numpy, which stays below 2 for numpy-financial 1.0.0,
+# the newest that OCA's account_loan allows, openupgradelib, pandas and plaid-python. For Alixea's own sets: Authlib
+# (mcp_server, which asks for 1.6.12 up to 1.7) and xmltodict (erpw_apix_invoicing)
 # NOTE! pandas brings the pip package tzdata, which is removed again. Its list of zones has old names that Ubuntu's
 # own zone files no longer have, and Odoo 20.0 stops at the first one pytz cannot open. pandas uses Ubuntu's files
 RUN pip install --break-system-packages --no-cache-dir \
+      Authlib==1.6.12 \
       numpy==1.26.4 \
       numpy-financial==1.0.0 \
       openupgradelib==3.13.7 \
       pandas==2.2.3 \
-      plaid-python==46.0.0 && \
+      plaid-python==46.0.0 \
+      xmltodict==1.0.4 && \
     pip uninstall --break-system-packages --yes tzdata
 
 # Every zone Python lists and pytz knows opens, as Odoo 20.0 needs to start

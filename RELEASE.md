@@ -55,8 +55,9 @@ After the move:
 The cores download the module sets from a bucket, not from GitHub. Each version is released there once by the
 **Release** workflow of the set's repository. A released version is final: a fix is a new version.
 
-- **Alixea modules, Alixea Finance:** push a tag such as `19.0/1.4.0` on the series branch. The release runs by
-  itself.
+- **Alixea modules, Alixea Finance:** push to the series branch, such as `19.0`, of `alixea-erp/alixea-generic` or
+  `alixea-erp/alixea-finance`. The push is tagged `19.0/<date>` and released by itself. A Python package a module
+  needs and the image lacks goes into the `Dockerfile` here, pinned.
 - **Odoo Enterprise:** released by itself after an image of a new Odoo date is built (above). It takes Enterprise
   at the date of our newest image of each series. By hand: run **Release** in `alixea-erp/odoo-enterprise`, for every
   series or one.
