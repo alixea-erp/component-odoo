@@ -49,10 +49,12 @@ parameterGroups:
         type: boolean
         defaultValue: true
         description: Recommended. Keeps Odoo and its modules secure and up to date
+      # Alixea's own two sets are part of every deployment, so they are on and cannot be turned off
       - name: Alixea modules
         identifier: ALIXEA_GENERIC
         type: boolean
         defaultValue: true
+        readOnly: true
       - name: Alixea modules version
         identifier: ALIXEA_GENERIC_VERSION
         type: assetVersion
@@ -60,7 +62,8 @@ parameterGroups:
       - name: Alixea Finance
         identifier: ALIXEA_FINANCE
         type: boolean
-        defaultValue: false
+        defaultValue: true
+        readOnly: true
       - name: Alixea Finance version
         identifier: ALIXEA_FINANCE_VERSION
         type: assetVersion
@@ -108,9 +111,8 @@ assetUpdates:
 
 # Tags <series>/<version> of private repositories, fetched by the core and mounted at /mnt/addons/<identifier>
 assets:
-  # A placeholder with one dummy module until the Alixea modules exist
   - identifier: alixea-generic
-    repository: alixea-erp/modules-test
+    repository: alixea-erp/alixea-generic
     tagPrefix: '${COMPONENT_VERSION}/'
     ref: '${ALIXEA_GENERIC_VERSION}'
     parameter: ALIXEA_GENERIC
