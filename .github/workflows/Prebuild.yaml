@@ -3,7 +3,8 @@ name: Pre-Build Components
 # The images of the Odoo series. BaseImageCheck.yaml starts this for the series whose Odoo image changed, so a series
 # gets a new digest only when Odoo published one; a build every night would be a new digest for nothing. "Run
 # workflow" builds them by hand, after a change to Dockerfile or init.sh. Nothing reaches a deployment before an admin
-# approves the build. A push to main only builds main, for trying.
+# approves the build. A push to main only builds main, for trying. Slack hears of a build the nightly check started,
+# and of one by hand only with "Skip Slack" unticked.
 on:
   push:
     branches: [main]
@@ -19,6 +20,10 @@ on:
       series:
         description: all, or a JSON list such as ["19.0", "20.0"]
         default: all
+      skip_slack:
+        description: Skip Slack. A developer's build is not news to the others
+        type: boolean
+        default: true
 
 env:
   REGISTRY: public.ecr.aws
@@ -91,12 +96,21 @@ jobs:
             org.opencontainers.image.base.digest=${{ steps.base.outputs.digest }}
             org.alixea.odoo.release=${{ steps.release.outputs.date }}
 
+      # Only a series' image: a push to main builds a test image nobody approves
+      - name: Tell Slack it is built
+        if: github.event_name == 'workflow_dispatch' && !inputs.skip_slack
+        uses: alixea-erp/action-module-set/slack@v1
+        with:
+          webhook: ${{ secrets.SLACK_ODOO_RELEASES_WEBHOOK_URL }}
+          kind: released
+          headline: The Odoo ${{ matrix.series }} image of ${{ steps.release.outputs.date }} is built
+          next: Try it on a test deployment, then approve the image.
+
       - name: Tell Slack it failed
-        if: failure()
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ODOO_RELEASES_WEBHOOK_URL }}
-          SERIES: ${{ matrix.series }}
-        run: |
-          [ -n "$SLACK_WEBHOOK_URL" ] || exit 0
-          text="The build of the Odoo $SERIES image failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          jq -n --arg text "$text" '{text: $text}' | curl --fail --silent --show-error -X POST -H 'Content-Type: application/json' -d @- "$SLACK_WEBHOOK_URL"
+        if: failure() && !inputs.skip_slack
+        uses: alixea-erp/action-module-set/slack@v1
+        with:
+          webhook: ${{ secrets.SLACK_ODOO_RELEASES_WEBHOOK_URL }}
+          headline: The build of the Odoo ${{ matrix.series }} image failed
+          details: No new image, so Enterprise and OCA of that date are not released either.
+          next: Fix it, then run Pre-Build for ${{ matrix.series }}.

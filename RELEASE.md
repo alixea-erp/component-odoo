@@ -15,13 +15,14 @@ If a change needs both, release the image first.
 
 **When Odoo publishes a new image, you only approve.** Every night at 05:00 UTC, **Base Image Check** builds the
 series whose Odoo image changed. Twice a day, at 06:30 and 18:30 UTC, the Enterprise fork releases Enterprise of the
-same date. Then Slack says the series is ready to try. Start at step 2.
+same date. Slack says when the image is built, and again when Enterprise is released. Start at step 2.
 
 After a change to `Dockerfile` or `init.sh`, build by hand: run **Pre-Build Components** on `main`. It builds every
 series, or the list you give, such as `["19.0"]`. Each build is a new digest, and approving it restarts the
-deployments that update automatically, so do not build more often than needed.
+deployments that update automatically, so do not build more often than needed. A build by hand says nothing in
+Slack. Untick **Skip Slack** when the others should hear of it.
 
-1. Wait for the build. Slack says so when Odoo published the image, and says when a build or a release failed.
+1. Wait for the build. Slack says so when Odoo published the image, and says when such a build or a release failed.
 2. Open the admin **Updates** page.
 3. When the workflow is done, click **Check images**. **Latest** then shows the time of your build. Approving
    earlier approves the old build again.

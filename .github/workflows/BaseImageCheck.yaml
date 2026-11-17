@@ -1,9 +1,9 @@
 name: Base Image Check
 
 # Every night: has Odoo published a new image of a series since ours was built? Then it starts Pre-Build for those
-# series. The Enterprise fork releases Enterprise of the same day once our image is built, and says in Slack when
-# both are ready to try and approve (docs/OdooModules.md, decision 2). Nothing reaches a deployment before an admin
-# approves the image.
+# series. Pre-Build says in Slack when an image is built. The Enterprise fork then releases Enterprise of the same
+# day and says so itself (docs/OdooModules.md, decision 2). Nothing reaches a deployment before an admin approves
+# the image.
 on:
   schedule:
     - cron: '0 5 * * *'
@@ -41,14 +41,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SERIES: ${{ steps.compare.outputs.series }}
         run: |
-          gh workflow run Prebuild.yaml --repo "$GITHUB_REPOSITORY" --ref main -f series="$SERIES"
+          gh workflow run Prebuild.yaml --repo "$GITHUB_REPOSITORY" --ref main -f series="$SERIES" -f skip_slack=false
           echo "Started Pre-Build for $SERIES" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Tell Slack it failed
         if: failure()
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ODOO_RELEASES_WEBHOOK_URL }}
-        run: |
-          [ -n "$SLACK_WEBHOOK_URL" ] || exit 0
-          text="The check for new Odoo images failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          jq -n --arg text "$text" '{text: $text}' | curl --fail --silent --show-error -X POST -H 'Content-Type: application/json' -d @- "$SLACK_WEBHOOK_URL"
+        uses: alixea-erp/action-module-set/slack@v1
+        with:
+          webhook: ${{ secrets.SLACK_ODOO_RELEASES_WEBHOOK_URL }}
+          headline: The check for new Odoo images failed
+          next: Fix it, then run Base Image Check by hand.
