@@ -33,6 +33,13 @@ export PGUSER="$ODOO_USER" PGPASSWORD="$ODOO_PASSWORD" PGDATABASE="$DB"
 export PGOPTIONS='--client-min-messages=warning'
 
 admin_psql() { PGUSER="$POSTGRES_USER" PGPASSWORD="$POSTGRES_PASSWORD" psql -d postgres -v ON_ERROR_STOP=1 -qtA "$@"; }
+# Odoo's AI apps need pgvector and turn it on themselves, which only a superuser may do. Nothing where the add-on
+# has no pgvector
+db_enable_vector() { # <database>
+  PGUSER="$POSTGRES_USER" PGPASSWORD="$POSTGRES_PASSWORD" psql -d "$1" -v ON_ERROR_STOP=1 -q -c "DO \$\$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector') THEN CREATE EXTENSION IF NOT EXISTS vector; END IF;
+  END \$\$" || log "The pgvector extension could not be turned on in $1. Odoo's AI apps will not install"
+}
 db_exists() { [ "$(admin_psql -c "SELECT 1 FROM pg_database WHERE datname = '$1'")" = 1 ]; }
 db_is_ours() { [ "$(admin_psql -c "SELECT shobj_description(oid, 'pg_database') FROM pg_database WHERE datname = '$1'")" = "$MARK" ]; }
 db_mark() { admin_psql -c "COMMENT ON DATABASE \"$1\" IS '$MARK'"; }
@@ -113,7 +120,7 @@ set_parameter() { # <key> <value> [database]
 #
 
 set_ref() { echo " ${DIPLOI_MODULE_SET_REFS:-} " | sed -n "s/.* $1=\([^ ]*\) .*/\1/p"; }
-manifest_value() { # <set folder> <installModules|modules|tag>
+manifest_value() { # <set folder> <installModules|modules|tag|pythonTag>
   python3 - "$1/manifest.json" "$2" <<'PYEOF'
 import json, os, sys
 manifest = json.load(open(sys.argv[1])) if os.path.exists(sys.argv[1]) else {}
@@ -137,14 +144,19 @@ plain_version() { sed -E 's/-[0-9a-f]{16}$//' <<<"$1"; }
 
 # For the log: Odoo, each set with its version and the number of its modules, and the folders of own modules
 describe_pod() {
-  local entry set_name image=${ODOO_IMAGE:-unknown} off="" tag
+  local entry set_name image=${ODOO_IMAGE:-unknown} off="" tag built python_tag
+  python_tag=$(python3 -c 'import sys; print(sys.implementation.cache_tag)')
   log "$(PYTHONPATH=$IMAGE_CODE odoo --version 2>/dev/null || echo Odoo), image ${image##*@}"
   for entry in ${DIPLOI_MODULE_SETS:-}; do
     set_name=${entry%%=*}
     case " $enabled_sets " in
       *" $set_name "*)
         tag=$(manifest_value "$SETS/$set_name" tag)
-        log "Module set $set_name: ${tag:-$(plain_version "$(set_ref "$set_name")")}, $(manifest_value "$SETS/$set_name" modules | tr ',' '\n' | grep -c . || true) modules"
+        built=$(manifest_value "$SETS/$set_name" pythonTag)
+        log "Module set $set_name: ${tag:-$(plain_version "$(set_ref "$set_name")")}, $(manifest_value "$SETS/$set_name" modules | tr ',' '\n' | grep -c . || true) modules${built:+, built for $built}"
+        # Bytecode loads only in the Python it was made for. The update then fails on the first of its modules
+        [ -z "$built" ] || [ "$built" = "$python_tag" ] ||
+          log "WARNING: module set $set_name is built for $built and this image has $python_tag, so its modules do not load. Release the set again for this image"
         ;;
       *) off="$off $set_name" ;;
     esac
@@ -304,6 +316,9 @@ PYEOF
     set_parameter "module_set:$set_name" "$(set_ref "$set_name")" "$database"
   done
 
+  # A built set has its Python only as *.pyc, which click-odoo-update leaves out of a module's hash by default: a
+  # release that changes only Python would not be upgraded. Its default with __pycache__ in place of *.pyc
+  psql -d "$database" -v ON_ERROR_STOP=1 -q -c "INSERT INTO ir_config_parameter (key, value) VALUES ('module_auto_update.exclude_patterns', '*__pycache__*,*.pyo,i18n/*.pot,i18n_extra/*.pot,static/*,tests/*') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
   if [ "$3" = hashes ]; then
     # A database made a moment ago: everything is current, only the hashes are missing
     click-odoo-update -c "$CONF" -d "$database" --only-compute-hashes
@@ -373,6 +388,8 @@ if db_exists "$BEFORE" && db_is_ours "$BEFORE"; then
   fi
 fi
 
+# Also a database from before the add-on had pgvector, and one that was imported
+! db_exists "$DB" || db_enable_vector "$DB"
 RECORDED=$(db_exists "$DB" && get_parameter code || true)
 # NOTE! No trailing slash: "current" is a link, and rm -rf on a link with a slash empties what it points at
 for copy in "$CODE"/*; do
@@ -395,6 +412,7 @@ if ! db_exists "$DB"; then
 
   admin_psql -c "CREATE DATABASE \"$NEW\" OWNER \"$ODOO_USER\""
   db_mark "$NEW"
+  db_enable_vector "$NEW"
   use_code image
   odoo --config="$CONF" -d "$NEW" --init=base --stop-after-init
   set_admin_password "$NEW"
@@ -491,7 +509,8 @@ if [ $update_status = 0 ] && [ $copy_status = 0 ]; then
   [ "$RECORDED" = "$WANTED" ] || [ -z "$RECORDED" ] || rm -rf "${CODE:?}/$RECORDED"
   rm -f "$CODE/failed"
   # click-odoo-update names the modules whose files changed
-  upgraded=$(sed -n 's/.*Updating addons for their hash changed: \(.*\)\.$/\1/p' "$LOG" | tail -n 1)
+  # NOTE! Odoo ends a log line with a space
+  upgraded=$(sed -n 's/.*Updating addons for their hash changed: \(.*\)\.[[:space:]]*$/\1/p' "$LOG" | tail -n 1)
   log "Updating: upgraded ${upgraded:-no module, none had changed}"
   log "Odoo init complete: updated, the upgrade took $((SECONDS - step_start)) s"
   exit 0

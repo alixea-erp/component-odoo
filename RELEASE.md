@@ -66,6 +66,12 @@ The cores download the module sets from a bucket, not from GitHub. Each version 
   every series whose list changed. The run's summary names the Python packages the
   modules need. One that the image lacks goes into the `Dockerfile` here, pinned, before the modules are offered.
 
+Before it uploads, every release installs each of the set's modules once on a throwaway database. A module that
+fails stops the release: the version does not show on the **Updates** page, and Slack says which module failed and
+why. Fix it and release again. To release all the same, run **Release** by hand and tick **Skip check**.
+The Alixea sets are released as bytecode for the image's Python, not as source: a new image on another Python
+needs new releases of both.
+
 Then click **Approve** for the version on the admin **Updates** page. Deployments that update automatically move to it at
 01:00 UTC, or at once with **Push now**.
 

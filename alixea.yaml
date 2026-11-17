@@ -134,7 +134,7 @@ assets:
 
 dependencies:
   - identifier: postgres
-    package: https://github.com/alixea-erp/addon-postgres#v18.3
+    package: https://github.com/alixea-erp/addon-postgres#v18.7
     env:
       include:
         - POSTGRES_HOST:HOST
