@@ -32,6 +32,17 @@ RUN set -eux; \
 # never removed, and versions are pinned: after a failed update the old code runs on the new image
 RUN pip install --break-system-packages --no-cache-dir click-odoo-contrib==1.24
 
+# What Odoo Enterprise's modules import and Odoo's image lacks: dbfread, google-auth, PyJWT, paramiko and xmlsec.
+# From Ubuntu and not pip, where xmlsec, google-auth and paramiko bring a newer lxml and cryptography than Odoo uses
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      python3-dbfread \
+      python3-google-auth \
+      python3-jwt \
+      python3-paramiko \
+      python3-xmlsec && \
+    rm -rf /var/lib/apt/lists/*
+
 # What modules of the sets need and Odoo's image lacks. Odoo refuses to install a module whose package is missing.
 # For OCA (alixea-erp/oca, a release's summary names them): numpy, which stays below 2 for numpy-financial 1.0.0,
 # the newest that OCA's account_loan allows, openupgradelib, pandas and plaid-python. For Alixea's own sets: Authlib
