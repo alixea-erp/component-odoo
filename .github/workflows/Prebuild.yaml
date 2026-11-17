@@ -21,7 +21,7 @@ on:
         description: all, or a JSON list such as ["19.0", "20.0"]
         default: all
       skip_slack:
-        description: Skip Slack. A developer's build is not news to the others
+        description: Skip Slack
         type: boolean
         default: true
 
