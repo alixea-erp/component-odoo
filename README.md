@@ -28,7 +28,7 @@ a private repository. The platform fetches the chosen version and mounts it at `
 
 Alixea Generic and Alixea Finance are on in a new deployment. Their modules appear under Apps.
 
-A set can be turned off only while none of its modules is installed in Odoo, and only while the deployment and
+A set can be turned off only while none of its modules are installed in Odoo, and only while the deployment and
 Odoo are running: Odoo is asked what is installed. Uninstall the set's modules in Odoo first. Uninstalling a module
 deletes its data.
 
