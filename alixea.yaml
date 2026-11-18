@@ -31,7 +31,7 @@ storage:
 parameterGroups:
   - name: Admin login
     identifier: admin
-    description: The user is "admin". Change the password in Odoo after the first login
+    description: The user is "admin". Change the password in Odoo after first login
     parameters:
       - name: Password
         identifier: INITIAL_ADMIN_PASSWORD
@@ -42,7 +42,7 @@ parameterGroups:
 
   - name: Modules
     identifier: modules
-    description: A set can be turned off while none of its modules is installed in Odoo
+    description: Which module sets are available to install in Odoo
     parameters:
       - name: Update automatically
         identifier: AUTO_UPDATE
