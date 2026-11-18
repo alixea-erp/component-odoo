@@ -277,7 +277,7 @@ connection.close()
 PYEOF
 }
 
-# Installs the modules of newly checked sets, removes those of unchecked ones, then upgrades what changed.
+# Installs the modules of newly checked sets, forgets those of unchecked ones, then upgrades what changed.
 # Runs with the image's code and the mounted sets, and a set that goes still has its code in the old copy.
 # click-odoo-update reads addons_path from the config only, so the path is set there
 update_database() { # <database> <id of the old copy or ''> <upgrade | hashes>
@@ -292,7 +292,7 @@ update_database() { # <database> <id of the old copy or ''> <upgrade | hashes>
     case " $enabled_sets " in *" $set_name "*) continue ;; esac
     if [ -n "$old_sets" ] && [ -d "$old_sets/$set_name" ]; then
       modules=$(manifest_value "$old_sets/$set_name" modules)
-      log "Module set $set_name: removing its modules and the modules depending on them"
+      log "Module set $set_name: none of its modules is installed, removing it"
       set_addons_path "$addons_path,$old_sets/$set_name"
       MODULES=$modules odoo shell --config="$CONF" -d "$database" --no-http <<'PYEOF'
 import os
@@ -300,9 +300,10 @@ names = [name for name in os.environ["MODULES"].split(",") if name]
 Module = env["ir.module.module"]
 Module.search([("name", "in", names), ("state", "=", "to install")]).state = "uninstalled"
 Module.search([("name", "in", names), ("state", "in", ["to upgrade", "to remove"])]).state = "installed"
-installed = Module.search([("name", "in", names), ("state", "=", "installed")])
-if installed:
-    installed.button_immediate_uninstall()
+# NOTE! Never uninstalled here: that deletes the modules' data, which is for a person to do in Odoo. sets_in_use
+# stopped the update before this when one was installed, so one that is now was installed a moment ago
+if Module.search_count([("name", "in", names), ("state", "=", "installed")]):
+    raise SystemExit("a module of the set was installed while the set was being removed")
 env["ir.module.module"].search([("name", "in", names), ("state", "in", ["uninstalled", "uninstallable"])]).unlink()
 env.cr.commit()
 PYEOF
@@ -335,6 +336,27 @@ PYEOF
 env["ir.module.module"].update_list()
 env.cr.commit()
 PYEOF
+}
+
+# A set that was turned off, when modules of it are installed: "<set> <count> <the first names>". Uninstalling deletes
+# their data, so the set stays until a person has uninstalled them in Odoo
+sets_in_use() {
+  local old_sets=$CODE/$RECORDED/sets key set_name modules installed
+  for key in $(psql -d "$DB" -qtAc "SELECT key FROM diploi_parameters WHERE key LIKE 'module_set:%'" 2>/dev/null || true); do
+    set_name=${key#module_set:}
+    case " $enabled_sets " in *" $set_name "*) continue ;; esac
+    [ -d "$old_sets/$set_name" ] || continue
+    modules=$(manifest_value "$old_sets/$set_name" modules)
+    installed=$(psql -d "$DB" -v ON_ERROR_STOP=1 -v modules="$modules" -qtA <<'SQL'
+SELECT name FROM ir_module_module
+WHERE state IN ('installed', 'to install', 'to upgrade', 'to remove') AND name = ANY(string_to_array(:'modules', ','))
+ORDER BY name
+SQL
+    )
+    [ -n "$installed" ] || continue
+    echo "$set_name $(wc -l <<<"$installed") $(head -8 <<<"$installed" | paste -sd, - | sed 's/,/, /g')"
+    return 0
+  done
 }
 
 failed_module() { grep -o 'Loading module [a-z0-9_]* ' "$LOG" 2>/dev/null | tail -1 | cut -d' ' -f3; }
@@ -532,6 +554,13 @@ fail() { # <message>: Odoo runs the old code, or the start stops when there is n
 if [ "$(cat "$CODE/failed" 2>/dev/null | head -1)" = "$attempt" ]; then
   log "This update failed before and nothing has changed since: not trying it again"
   fail "$(sed -n 2p "$CODE/failed")"
+fi
+
+# When it cannot be asked, the removal itself still stops at an installed module
+in_use=$(sets_in_use) || in_use=""
+if [ -n "$in_use" ]; then
+  read -r set_name count names <<<"$in_use"
+  fail "module set $set_name cannot be turned off, $count of its modules are installed ($names$([ "$count" -le 8 ] || echo ' and more')). Uninstall them in Odoo first"
 fi
 
 log "Updating: $(describe_changes)"
