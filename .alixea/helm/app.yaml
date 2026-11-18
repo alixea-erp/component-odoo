@@ -21,48 +21,58 @@ spec:
       imagePullSecrets:
         - name: diploi-pull-secret
       initContainers:
-        - name: odoo-init
-          image: {{ .Values.images.app }}
+        # Two runs of the image's init.sh with the same variables and mounts. check-for-updates only reads and says
+        # what odoo-init is about to do: a plain start, the first one, or an update and the versions it changes. Its
+        # answer is in the pod's status while odoo-init works, which is how the deployment page knows of an update
+        {{- range $step := list "check-for-updates" "odoo-init" }}
+        - name: {{ $step }}
+          image: {{ $.Values.images.app }}
           imagePullPolicy: Always
           # From the image, not from this chart: a fix to it reaches every deployment with the next image.
           # NOTE! What it is handed here (names, paths) is only added to: a new image runs with every older chart
           command:
             - /bin/bash
+            {{- if eq $step "check-for-updates" }}
+            - -c
+            # NOTE! An image from before the check would run its whole init here, so it is asked first
+            - 'if grep -q "^check_for_updates()" /init.sh; then exec /bin/bash /init.sh check; fi'
+            {{- else }}
             - /init.sh
+            {{- end }}
           env:
             - name: PGHOST
-              value: {{ .Values.envMap.HOST.value | quote }}
+              value: {{ $.Values.envMap.HOST.value | quote }}
             - name: PGPORT
-              value: {{ .Values.envMap.PORT.value | quote }}
+              value: {{ $.Values.envMap.PORT.value | quote }}
             # Not PGUSER/PGPASSWORD: Odoo 19+ reads PG* variables and they
             # override odoo.conf, so the superuser must not be exposed as them.
             - name: POSTGRES_USER
-              value: {{ .Values.envMap.POSTGRES_USER.value | quote }}
+              value: {{ $.Values.envMap.POSTGRES_USER.value | quote }}
             - name: POSTGRES_PASSWORD
-              value: {{ .Values.envMap.POSTGRES_PASSWORD.value | quote }}
+              value: {{ $.Values.envMap.POSTGRES_PASSWORD.value | quote }}
             - name: ODOO_USER
-              value: {{ .Values.envMap.USER.value | quote }}
+              value: {{ $.Values.envMap.USER.value | quote }}
             - name: ODOO_PASSWORD
-              value: {{ .Values.envMap.PASSWORD.value | quote }}
+              value: {{ $.Values.envMap.PASSWORD.value | quote }}
             - name: ODOO_DB
-              value: {{ .Values.envMap.DATABASE.value | quote }}
+              value: {{ $.Values.envMap.DATABASE.value | quote }}
             - name: INITIAL_ADMIN_PASSWORD
-              value: {{ .Values.envMap.INITIAL_ADMIN_PASSWORD.value | quote }}
+              value: {{ $.Values.envMap.INITIAL_ADMIN_PASSWORD.value | quote }}
             # The version of this pod: the image and the fetched tag of each checked set
             - name: ODOO_IMAGE
-              value: {{ .Values.images.app | quote }}
+              value: {{ $.Values.images.app | quote }}
             - name: DIPLOI_MODULE_SETS
-              value: "{{- range $identifier, $asset := (.Values.assets | default dict) }}{{- if $asset.hostPath }}{{ $identifier }}={{ $asset.enabled }} {{ end }}{{- end }}"
+              value: "{{- range $identifier, $asset := ($.Values.assets | default dict) }}{{- if $asset.hostPath }}{{ $identifier }}={{ $asset.enabled }} {{ end }}{{- end }}"
             - name: DIPLOI_MODULE_SET_REFS
-              value: "{{- range $identifier, $asset := (.Values.assets | default dict) }}{{- if $asset.hostPath }}{{ $identifier }}={{ base $asset.hostPath }} {{ end }}{{- end }}"
+              value: "{{- range $identifier, $asset := ($.Values.assets | default dict) }}{{- if $asset.hostPath }}{{ $identifier }}={{ base $asset.hostPath }} {{ end }}{{- end }}"
           volumeMounts:
             - name: data-mount
               mountPath: /var/lib/odoo
-            {{- if hasKey .Values.storage "code" }}
+            {{- if hasKey $.Values.storage "code" }}
             - name: extra-addons-mount
               mountPath: /mnt/extra-addons
             {{- end }}
-            {{- range $identifier, $asset := (.Values.assets | default dict) }}
+            {{- range $identifier, $asset := ($.Values.assets | default dict) }}
             {{- if $asset.hostPath }}
             - name: addons-{{ $identifier }}
               mountPath: /mnt/addons/{{ $identifier }}
@@ -70,6 +80,7 @@ spec:
             {{- end }}
             {{- end }}
 
+        {{- end }}
       containers:
         - name: app
           image: {{ .Values.images.app }}

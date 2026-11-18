@@ -1,5 +1,7 @@
 #!/bin/bash
 # Prepares the database and the code before Odoo starts. Runs in the init container of the pod, from the image.
+# "init.sh check" runs in an init container before that one and only says what this start will do: a plain start,
+# the first one, or an update with the versions it changes. The deployment page shows it while the update runs.
 #
 # The rule everything here keeps: the database never records a version without a complete copy of that version's
 # code on the deployment's disk. Odoo runs from the image when the image and the module sets are the version the
@@ -240,9 +242,11 @@ use_code() { # image | <id>
   export PYTHONPATH=$core
 }
 
+TERMINATION_LOG=${ALIXEA_TERMINATION_LOG:-/dev/termination-log}
+
 notice() { # shown on the deployment page: an init container that exits 0 with a message
   log "$1"
-  echo "$1" >/dev/termination-log 2>/dev/null || true
+  echo "$1" >"$TERMINATION_LOG" 2>/dev/null || true
 }
 
 addons_hash() { find "$EXTRA_ADDONS" -type f -printf '%P %s %T@\n' 2>/dev/null | sort | sha256sum | cut -c1-16; }
@@ -334,6 +338,63 @@ PYEOF
 }
 
 failed_module() { grep -o 'Loading module [a-z0-9_]* ' "$LOG" 2>/dev/null | tail -1 | cut -d' ' -f3; }
+
+#
+# check: what the start after it will do, as one line of JSON for the deployment page and for whoever counts
+# versions. It only reads. What it says is a forecast: the start decides by itself, a moment later
+#
+
+set_tag() { # <set folder> <its ref>: the version as it was released
+  local tag
+  tag=$(manifest_value "$1" tag)
+  echo "${tag:-$(plain_version "$2")}"
+}
+
+check_for_updates() {
+  local action=update old="" recorded set_name message
+  until pg_isready -d postgres >/dev/null 2>&1; do sleep 2; done
+
+  recorded=$(db_exists "$DB" && get_parameter code || true)
+  if [ -n "$recorded" ] && [ -d "$CODE/$recorded" ]; then old=$CODE/$recorded; fi
+  if ! db_exists "$DB"; then action=install; elif [ -n "$old" ] && [ "$recorded" = "$WANTED" ]; then action=start; fi
+
+  message=$({
+    echo "action=$action"
+    echo "image.wanted=${ODOO_IMAGE:-}"
+    for set_name in $enabled_sets; do echo "wanted.$set_name=$(set_tag "$SETS/$set_name" "$(set_ref "$set_name")")"; done
+    if [ -n "$old" ]; then
+      echo "image.running=$(grep '^core=' "$old/parts" | cut -d= -f2-)"
+      for set_name in $(ls "$old/sets" 2>/dev/null); do
+        echo "running.$set_name=$(set_tag "$old/sets/$set_name" "$(grep "^set:$set_name=" "$old/parts" | cut -d= -f2-)")"
+      done
+    fi
+  } | python3 -c '
+import json, sys
+
+check = {"alixea": "update-check", "action": "", "running": {}, "wanted": {}, "image": {}}
+for line in sys.stdin.read().splitlines():
+    key, _, value = line.partition("=")
+    group, _, name = key.partition(".")
+    if group == "action":
+        check["action"] = value
+    elif group == "image":
+        # The digest says which build it is
+        check["image"][name] = value.rpartition("@")[2]
+    else:
+        check[group][name] = value
+print(json.dumps(check, separators=(",", ":")))
+')
+
+  [ -n "$message" ] || return 1
+  log "Check for updates: $message"
+  echo "$message" >"$TERMINATION_LOG" 2>/dev/null || true
+}
+
+if [ "${1:-}" = check ]; then
+  # NOTE! Never the reason a start stops: without the check the page only shows less
+  (check_for_updates) || log "The check for updates did not work. The start goes on without it"
+  exit 0
+fi
 
 #
 # The start
