@@ -6,7 +6,7 @@ A change goes out in one of two ways, depending on the file.
 
 | You changed                                                                     | Release it with  |
 | ------------------------------------------------------------------------------- | ---------------- |
-| `Dockerfile` or `init.sh`                                                       | A new image      |
+| `Dockerfile`, `init.sh` or `modules.sh`                                         | A new image      |
 | The chart, `alixea.yaml`, `AGENTS.md`, the skills, `README.md`, `.alixeaignore` | The version tags |
 
 If a change needs both, release the image first.
@@ -17,7 +17,7 @@ If a change needs both, release the image first.
 series whose Odoo image changed. Twice a day, at 06:30 and 18:30 UTC, the Enterprise fork releases Enterprise of the
 same date. Slack says when the image is built, and again when Enterprise is released. Start at step 2.
 
-After a change to `Dockerfile` or `init.sh`, build by hand: run **Pre-Build Components** on `main`. It builds every
+After a change to `Dockerfile`, `init.sh` or `modules.sh`, build by hand: run **Pre-Build Components** on `main`. It builds every
 series, or the list you give, such as `["19.0"]`. Each build is a new digest, and approving it restarts the
 deployments that update automatically, so do not build more often than needed. A build by hand says nothing in
 Slack. Untick **Skip Slack** when the others should hear of it.

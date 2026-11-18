@@ -65,7 +65,7 @@ RUN pip install --break-system-packages --no-cache-dir \
 # Every zone Python lists and pytz knows opens, as Odoo 20.0 needs to start
 RUN python3 -c 'import pytz, zoneinfo; [pytz.timezone(name) for name in zoneinfo.available_timezones() if name in pytz.all_timezones_set]'
 
-COPY --chmod=755 init.sh /init.sh
+COPY --chmod=755 init.sh modules.sh /
 
 # One layer: moving Odoo above would otherwise ship its 1.3 GB twice, once in the layer it came in
 FROM scratch

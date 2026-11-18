@@ -2,6 +2,8 @@
 # Prepares the database and the code before Odoo starts. Runs in the init container of the pod, from the image.
 # "init.sh check" runs in an init container before that one and only says what this start will do: a plain start,
 # the first one, or an update with the versions it changes. The deployment page shows it while the update runs.
+# "init.sh modules" says which modules of each set are installed. modules.sh runs it in the running container for the
+# platform, which asks before a set is turned off.
 #
 # The rule everything here keeps: the database never records a version without a complete copy of that version's
 # code on the deployment's disk. Odoo runs from the image when the image and the module sets are the version the
@@ -340,19 +342,21 @@ PYEOF
 
 # A set that was turned off, when modules of it are installed: "<set> <count> <the first names>". Uninstalling deletes
 # their data, so the set stays until a person has uninstalled them in Odoo
-sets_in_use() {
-  local old_sets=$CODE/$RECORDED/sets key set_name modules installed
-  for key in $(psql -d "$DB" -qtAc "SELECT key FROM diploi_parameters WHERE key LIKE 'module_set:%'" 2>/dev/null || true); do
-    set_name=${key#module_set:}
-    case " $enabled_sets " in *" $set_name "*) continue ;; esac
-    [ -d "$old_sets/$set_name" ] || continue
-    modules=$(manifest_value "$old_sets/$set_name" modules)
-    installed=$(psql -d "$DB" -v ON_ERROR_STOP=1 -v modules="$modules" -qtA <<'SQL'
+installed_modules() { # <modules, comma separated>: the ones of them that are installed, one per line
+  psql -d "$DB" -v ON_ERROR_STOP=1 -v modules="$1" -qtA <<'SQL'
 SELECT name FROM ir_module_module
 WHERE state IN ('installed', 'to install', 'to upgrade', 'to remove') AND name = ANY(string_to_array(:'modules', ','))
 ORDER BY name
 SQL
-    )
+}
+
+sets_in_use() {
+  local old_sets=$CODE/$RECORDED/sets key set_name installed
+  for key in $(psql -d "$DB" -qtAc "SELECT key FROM diploi_parameters WHERE key LIKE 'module_set:%'" 2>/dev/null || true); do
+    set_name=${key#module_set:}
+    case " $enabled_sets " in *" $set_name "*) continue ;; esac
+    [ -d "$old_sets/$set_name" ] || continue
+    installed=$(installed_modules "$(manifest_value "$old_sets/$set_name" modules)")
     [ -n "$installed" ] || continue
     echo "$set_name $(wc -l <<<"$installed") $(head -8 <<<"$installed" | paste -sd, - | sed 's/,/, /g')"
     return 0
@@ -411,6 +415,33 @@ print(json.dumps(check, separators=(",", ":")))
   log "Check for updates: $message"
   echo "$message" >"$TERMINATION_LOG" 2>/dev/null || true
 }
+
+#
+# modules: for every mounted set the modules of it that are installed, as JSON: {"<set>": ["<module>", ...]}.
+# It only reads. Run in the running container by the platform, which turns a set off only when its list is empty
+#
+
+if [ "${1:-}" = modules ]; then
+  answer=
+  for folder in "$SETS"/*/; do
+    [ -f "$folder/manifest.json" ] || continue
+    # NOTE! Each on a line of its own: a query that fails ends the script, as no answer is not "nothing installed"
+    modules=$(manifest_value "$folder" modules)
+    installed=$(installed_modules "$modules")
+    answer+="$(basename "$folder")=$(paste -sd, - <<<"$installed")"$'\n'
+  done
+  python3 -c '
+import json, sys
+
+sets = {}
+for line in sys.stdin.read().splitlines():
+    name, _, modules = line.partition("=")
+    if name:
+        sets[name] = [module for module in modules.split(",") if module]
+print(json.dumps(sets, separators=(",", ":")))
+' <<<"$answer"
+  exit 0
+fi
 
 if [ "${1:-}" = check ]; then
   # NOTE! Never the reason a start stops: without the check the page only shows less

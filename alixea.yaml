@@ -42,19 +42,19 @@ parameterGroups:
 
   - name: Modules
     identifier: modules
-    description: Turning a set off uninstalls its modules and deletes their data
+    description: A set can be turned off while none of its modules is installed in Odoo
     parameters:
       - name: Update automatically
         identifier: AUTO_UPDATE
         type: boolean
         defaultValue: true
         description: Recommended. Keeps Odoo and its modules secure and up to date
-      # Alixea's own two sets are part of every deployment, so they are on and cannot be turned off
+      # A set is turned off only while none of its modules is installed: the platform asks first (assetUsage),
+      # and init.sh refuses in any case
       - name: Alixea modules
         identifier: ALIXEA_GENERIC
         type: boolean
         defaultValue: true
-        readOnly: true
       - name: Alixea modules version
         identifier: ALIXEA_GENERIC_VERSION
         type: assetVersion
@@ -63,7 +63,6 @@ parameterGroups:
         identifier: ALIXEA_FINANCE
         type: boolean
         defaultValue: true
-        readOnly: true
       - name: Alixea Finance version
         identifier: ALIXEA_FINANCE_VERSION
         type: assetVersion
@@ -108,6 +107,11 @@ parameterGroups:
 assetUpdates:
   parameter: AUTO_UPDATE
   holdImages: true
+
+# How the platform asks which modules of each set are installed, in the running container. It answers
+# {"<asset>": ["<module>", ...]}. The platform runs only the commands it knows, and this is one of them
+assetUsage:
+  command: ['/bin/bash', '/modules.sh']
 
 # Tags <series>/<version> of private repositories, fetched by the core and mounted at /mnt/addons/<identifier>
 assets:
