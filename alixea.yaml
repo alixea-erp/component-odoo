@@ -51,11 +51,11 @@ parameterGroups:
         description: Recommended. Keeps Odoo and its modules secure and up to date
       # A set is turned off only while none of its modules is installed: the platform asks first (assetUsage),
       # and init.sh refuses in any case
-      - name: Alixea modules
+      - name: Alixea Generic
         identifier: ALIXEA_GENERIC
         type: boolean
         defaultValue: true
-      - name: Alixea modules version
+      - name: Alixea Generic version
         identifier: ALIXEA_GENERIC_VERSION
         type: assetVersion
         asset: alixea-generic

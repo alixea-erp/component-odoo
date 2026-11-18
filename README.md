@@ -23,11 +23,14 @@ An init container runs `/init.sh` from the image before Odoo starts. On the firs
 
 ## Module sets and updates
 
-The **Modules** settings list the module sets: Alixea modules, Alixea Finance, Odoo Enterprise and OCA. Each set is
+The **Modules** settings list the module sets: Alixea Generic, Alixea Finance, Odoo Enterprise and OCA. Each set is
 a private repository. The platform fetches the chosen version and mounts it at `/mnt/addons/<set>`.
 
-Alixea modules and Alixea Finance are part of every deployment and cannot be turned off. Their modules appear
-under Apps.
+Alixea Generic and Alixea Finance are on in a new deployment. Their modules appear under Apps.
+
+A set can be turned off only while none of its modules is installed in Odoo, and only while the deployment and
+Odoo are running: Odoo is asked what is installed. Uninstall the set's modules in Odoo first. Uninstalling a module
+deletes its data.
 
 Odoo Enterprise and OCA modules cannot be on together. Turn one off before turning the other on. The OCA set
 installs nothing by itself: its modules appear under Apps.
