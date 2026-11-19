@@ -13,9 +13,11 @@ If a change needs both, release the image first.
 
 ## A new image
 
-**When Odoo publishes a new image, you only approve.** Every night at 05:00 UTC, **Base Image Check** builds the
-series whose Odoo image changed. Twice a day, at 06:30 and 18:30 UTC, the Enterprise fork releases Enterprise of the
-same date. Slack says when the image is built, and again when Enterprise is released. Start at step 2.
+**When Odoo publishes a new image, you only approve.** Every Monday at 05:00 UTC, **Base Image Check** builds the
+series whose Odoo image changed: 20.0 every week, 18.0 and 19.0 on the first Monday of the month. For a fix that
+cannot wait, run **Base Image Check** by hand, which checks all three. Twice a day, at 06:30 and 18:30 UTC, the
+Enterprise fork releases Enterprise of the same date. Slack says when the image is built, and again when Enterprise
+is released. Start at step 2.
 
 After a change to `Dockerfile`, `init.sh` or `modules.sh`, build by hand: run **Pre-Build Components** on `main`. It builds every
 series, or the list you give, such as `["19.0"]`. Each build is a new digest, and approving it restarts the

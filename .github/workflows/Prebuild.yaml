@@ -3,7 +3,7 @@ name: Pre-Build Components
 # The images of the Odoo series. BaseImageCheck.yaml starts this for the series whose Odoo image changed, so a series
 # gets a new digest only when Odoo published one; a build every night would be a new digest for nothing. "Run
 # workflow" builds them by hand, after a change to Dockerfile or init.sh. Nothing reaches a deployment before an admin
-# approves the build. A push to main only builds main, for trying. Slack hears of a build the nightly check started,
+# approves the build. A push to main only builds main, for trying. Slack hears of a build the weekly check started,
 # and of one by hand only with "Skip Slack" unticked.
 on:
   push:

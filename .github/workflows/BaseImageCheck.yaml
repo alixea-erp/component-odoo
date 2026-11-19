@@ -1,12 +1,13 @@
 name: Base Image Check
 
-# Every night: has Odoo published a new image of a series since ours was built? Then it starts Pre-Build for those
-# series. Pre-Build says in Slack when an image is built. The Enterprise fork then releases Enterprise of the same
+# Every Monday: has Odoo published a new image of a series since ours was built? Then it starts Pre-Build for those
+# series. 20.0 is checked every week, 18.0 and 19.0 on the first Monday of the month. "Run workflow" checks all
+# three. Pre-Build says in Slack when an image is built. The Enterprise fork then releases Enterprise of the same
 # day and says so itself (docs/OdooModules.md, decision 2). Nothing reaches a deployment before an admin approves
 # the image.
 on:
   schedule:
-    - cron: '0 5 * * *'
+    - cron: '0 5 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -24,8 +25,13 @@ jobs:
       - name: Compare the digests
         id: compare
         run: |
+          # The older series change little, so a month is often enough for them
+          checked="20.0"
+          if [ "$GITHUB_EVENT_NAME" != schedule ] || [ "$(date -u +%-d)" -le 7 ]; then checked="18.0 19.0 20.0"; fi
+          echo "Checking $checked" >> "$GITHUB_STEP_SUMMARY"
+
           changed=()
-          for series in 18.0 19.0 20.0; do
+          for series in $checked; do
             published=$(docker buildx imagetools inspect "odoo:$series" --format '{{.Manifest.Digest}}')
             # Empty while our image of the series does not exist yet, which is also a reason to build
             built_from=$(docker buildx imagetools inspect "$IMAGE:$series" --format '{{index .Image.Config.Labels "org.opencontainers.image.base.digest"}}' || true)
