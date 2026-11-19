@@ -86,6 +86,10 @@ jobs:
           provenance: false
           build-args: |
             ODOO_SERIES=${{ matrix.series }}
+          # The image before this one is the cache. With the same Odoo image and Dockerfile its big layer is taken as
+          # it is, so only init.sh and modules.sh are new to a deployment
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.PROJECT }}:${{ env.TAG }}
+          cache-to: type=inline
           tags: |
             ${{ env.REGISTRY }}/${{ env.PROJECT }}:${{ env.TAG }}
             ${{ env.REGISTRY }}/${{ env.PROJECT }}:${{ env.TAG }}-dev.

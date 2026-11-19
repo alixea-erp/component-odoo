@@ -65,11 +65,13 @@ RUN pip install --break-system-packages --no-cache-dir \
 # Every zone Python lists and pytz knows opens, as Odoo 20.0 needs to start
 RUN python3 -c 'import pytz, zoneinfo; [pytz.timezone(name) for name in zoneinfo.available_timezones() if name in pytz.all_timezones_set]'
 
-COPY --chmod=755 init.sh modules.sh /
-
 # One layer: moving Odoo above would otherwise ship its 1.3 GB twice, once in the layer it came in
 FROM scratch
 COPY --from=odoo / /
+
+# NOTE! After the big layer, in one of their own. A build that changes only these two takes the big layer from the
+# image before it (cache-from in Prebuild.yaml), and a deployment then downloads kilobytes and not the whole image
+COPY --chmod=755 init.sh modules.sh /
 
 ARG ODOO_SERIES=19.0
 # NOTE! Not Odoo's en_US.UTF-8: its image does not have that locale, and psql (a Perl script) says so at every call
