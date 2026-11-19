@@ -19,10 +19,12 @@ cannot wait, run **Base Image Check** by hand, which checks all three. Twice a d
 Enterprise fork releases Enterprise of the same date. Slack says when the image is built, and again when Enterprise
 is released. Start at step 2.
 
-After a change to `Dockerfile`, `init.sh` or `modules.sh`, build by hand: run **Pre-Build Components** on `main`. It builds every
-series, or the list you give, such as `["19.0"]`. Each build is a new digest, and approving it restarts the
-deployments that update automatically, so do not build more often than needed. A build by hand says nothing in
-Slack. Untick **Skip Slack** when the others should hear of it.
+After a change to `Dockerfile`, `init.sh` or `modules.sh`, build by hand: run **Pre-Build Components** on `main`. It
+builds every series, or the list you give, such as `["19.0"]`. A build that changes something is a new image, and
+approving it restarts the deployments that update automatically. A build that changes only `init.sh` or `modules.sh`
+keeps the big layer of the image before it, so a deployment downloads little. A build with nothing changed gives the
+same image again, and there is nothing to approve. A build by hand says nothing in Slack. Untick **Skip Slack** when
+the others should hear of it.
 
 1. Wait for the build. Slack says so when Odoo published the image, and says when such a build or a release failed.
 2. Open the admin **Updates** page.
