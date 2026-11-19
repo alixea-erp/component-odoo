@@ -103,6 +103,32 @@ They are in the deployment's **Setup** tab, and reach the container as environme
 
 `HOST`, `PORT`, `POSTGRES_USER` and `POSTGRES_PASSWORD` come from the PostgreSQL add-on.
 
+## AI in modules
+
+A module can use AI through the Alixea AI proxy. It is paid with the credits of the deployment's account, and needs
+no key of an AI provider. The container has two variables for it:
+
+| Variable          | Description                                                                     |
+| ----------------- | ------------------------------------------------------------------------------- |
+| `ALIXEA_AI_URL`   | The proxy's address. Add the API the module speaks: `/anthropic` or `/openai`.  |
+| `ALIXEA_AI_TOKEN` | The key, sent as the provider's API key. A secret: never log it or return it.   |
+
+```python
+import os
+import requests
+
+response = requests.post(
+    os.environ['ALIXEA_AI_URL'] + '/anthropic/v1/messages',
+    headers={'x-api-key': os.environ['ALIXEA_AI_TOKEN'], 'anthropic-version': '2023-06-01'},
+    json={'model': 'claude-haiku-5-5', 'max_tokens': 300, 'messages': [{'role': 'user', 'content': 'Hello'}]},
+    timeout=60,
+)
+```
+
+For OpenAI's API the address is `ALIXEA_AI_URL` + `/openai/v1/chat/completions`, with the token as `Authorization:
+Bearer`. The proxy is on the deployment's private network and answers only with the token. A deployment made before
+the variables existed gets them when its pending changes are applied.
+
 ## Start commands
 
 Odoo runs as user `odoo` (`1000:1000`). Change the start command in `alixea.yaml` with

@@ -103,6 +103,14 @@ parameterGroups:
         type: secret
         defaultValue: '${generate-random-password:16}'
 
+# The Alixea AI proxy, for Alixea's own modules: AI that is paid with the credits of the deployment's account. A module
+# adds the API it speaks to the address, /anthropic or /openai, and the token is the API key
+environmentVariables:
+  - identifier: ALIXEA_AI_URL
+    defaultValue: '{alixea-ai-gateway-url}'
+  - identifier: ALIXEA_AI_TOKEN
+    defaultValue: '{alixea-ai-gateway-token}'
+
 # The image is held too: it moves with the module sets, to the build an admin approved, in one restart
 assetUpdates:
   parameter: AUTO_UPDATE

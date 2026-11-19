@@ -70,6 +70,9 @@ speculate about platform behavior it does not describe.
   the env (`HOST`, `PORT`, `USER`, `PASSWORD`, `DATABASE`); `psql` is in the
   image, but prefer `odoo shell` for ORM-level work. Do not re-initialize the database: the init
   container records first-time setup in the `diploi_parameters` table and skips it afterwards.
+- **AI in a module** goes through the Alixea AI proxy, paid with the credits of the deployment's account:
+  `ALIXEA_AI_URL` + `/anthropic/v1/messages` or `/openai/v1/chat/completions`, with `ALIXEA_AI_TOKEN` as the API
+  key. Never hard-code a provider's key, and never log the token. `README.md` has an example.
 - Login is `admin` with `INITIAL_ADMIN_PASSWORD`, which is also the master password of the
   database manager. It is a secret: point the user to **Admin login** in the deployment's **Setup** tab, never
   print it.
