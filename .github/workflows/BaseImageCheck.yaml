@@ -25,6 +25,20 @@ jobs:
       - name: Compare the digests
         id: compare
         run: |
+          # A label of our image, and nothing while the image does not exist yet. The registry limits anonymous reads, so
+          # a read it refuses is tried again and fails the step in the end: it is not an image without the label
+          image_label() {
+            local attempt
+            for attempt in 1 2 3; do
+              if docker buildx imagetools inspect "$1" --format "{{index .Image.Config.Labels \"$2\"}}" 2> "$RUNNER_TEMP/inspect-error.txt"; then return 0; fi
+              if grep -qi 'not found' "$RUNNER_TEMP/inspect-error.txt"; then return 0; fi
+              echo "::warning::Could not read $1, attempt $attempt of 3: $(tail -n 1 "$RUNNER_TEMP/inspect-error.txt")" >&2
+              sleep $((attempt * 20))
+            done
+            echo "::error::Could not read $1. Run the workflow again" >&2
+            return 1
+          }
+
           # The older series change little, so a month is often enough for them
           checked="20.0"
           if [ "$GITHUB_EVENT_NAME" != schedule ] || [ "$(date -u +%-d)" -le 7 ]; then checked="18.0 19.0 20.0"; fi
@@ -34,7 +48,7 @@ jobs:
           for series in $checked; do
             published=$(docker buildx imagetools inspect "odoo:$series" --format '{{.Manifest.Digest}}')
             # Empty while our image of the series does not exist yet, which is also a reason to build
-            built_from=$(docker buildx imagetools inspect "$IMAGE:$series" --format '{{index .Image.Config.Labels "org.opencontainers.image.base.digest"}}' || true)
+            built_from=$(image_label "$IMAGE:$series" org.opencontainers.image.base.digest)
             echo "Odoo $series publishes $published, ours was built from ${built_from:-nothing}"
             [ "$published" = "$built_from" ] || changed+=("\"$series\"")
           done
