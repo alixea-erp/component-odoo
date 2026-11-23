@@ -115,6 +115,14 @@ environmentVariables:
   - identifier: ALIXEA_AI_TOKEN
     defaultValue: '{alixea-ai-gateway-token}'
 
+# The deployment's mail: ALIXEA_MAIL_DOMAIN and ALIXEA_MAIL_SECRET, and incoming mail posted to the alixea_mail module
+# of Alixea Generic, which also sends through the core
+mail:
+  inbound:
+    serviceName: app
+    port: 8069
+    path: /alixea/mail
+
 # The image is held too: it moves with the module sets, to the build an admin approved, in one restart
 assetUpdates:
   parameter: AUTO_UPDATE
