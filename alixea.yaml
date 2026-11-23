@@ -18,6 +18,10 @@ images:
   - identifier: app
     prebuildImage: public.ecr.aws/p8t2q7f4/alixea/component-odoo:[tag]
 
+# The project's own modules reach staging and production as the deployment's commit, mounted at /mnt/extra-addons.
+# Nothing is built. init.sh upgrades the modules whose files changed, and goes back to the commit before when that fails
+build: {}
+
 storage:
   - identifier: data
     uid: 1000

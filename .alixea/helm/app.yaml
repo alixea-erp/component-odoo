@@ -16,11 +16,35 @@ spec:
     metadata:
       labels:
         app: app
+        {{- with .Values.build }}
+        alixea.dev/build-hash: {{ .hash | quote }}
+        alixea.dev/build-attempt: {{ .attempt | default 0 | quote }}
+        alixea.dev/commit: {{ $.Values.code.commit | quote }}
+        {{- end }}
     spec:
       terminationGracePeriodSeconds: 10
       imagePullSecrets:
-        - name: diploi-pull-secret
+        - name: alixea-pull-secret
       initContainers:
+        {{- if and (ne .Values.stage "development") .Values.build }}
+        # The project's own modules in staging and production are the deployment's commit, which the core fetched into
+        # a build folder. Nothing is built: the script the core writes only marks the folder as done
+        - name: build
+          image: {{ .Values.images.app }}
+          imagePullPolicy: Always
+          command: ["/bin/sh", "-c", {{ .Values.build.script | quote }}]
+          env:
+            {{- range .Values.build.env }}
+            - name: {{ .identifier }}
+              value: {{ .value | quote }}
+            {{- end }}
+          resources:
+            limits:
+              memory: {{ .Values.build.memoryMiB }}Mi
+          volumeMounts:
+            - name: build-folder
+              mountPath: /app
+        {{- end }}
         # Two runs of the image's init.sh with the same variables and mounts. check-for-updates only reads and says
         # what odoo-init is about to do: a plain start, the first one, or an update and the versions it changes. Its
         # answer is in the pod's status while odoo-init works, which is how the deployment page knows of an update
@@ -61,16 +85,27 @@ spec:
             # The version of this pod: the image and the fetched tag of each checked set
             - name: ODOO_IMAGE
               value: {{ $.Values.images.app | quote }}
-            - name: DIPLOI_MODULE_SETS
+            - name: ALIXEA_MODULE_SETS
               value: "{{- range $identifier, $asset := ($.Values.assets | default dict) }}{{- if $asset.hostPath }}{{ $identifier }}={{ $asset.enabled }} {{ end }}{{- end }}"
-            - name: DIPLOI_MODULE_SET_REFS
+            - name: ALIXEA_MODULE_SET_REFS
               value: "{{- range $identifier, $asset := ($.Values.assets | default dict) }}{{- if $asset.hostPath }}{{ $identifier }}={{ base $asset.hostPath }} {{ end }}{{- end }}"
+            {{- if and (ne $.Values.stage "development") $.Values.code }}
+            # The own modules are a build of this commit, which makes them part of the version
+            - name: ODOO_OWN_COMMIT
+              value: {{ $.Values.code.commit | quote }}
+            {{- end }}
           volumeMounts:
             - name: data-mount
               mountPath: /var/lib/odoo
             {{- if hasKey $.Values.storage "code" }}
             - name: extra-addons-mount
               mountPath: /mnt/extra-addons
+            {{- end }}
+            {{- if and (ne $.Values.stage "development") $.Values.code }}
+            - name: build-folder
+              mountPath: /mnt/extra-addons
+              subPath: {{ trimPrefix "/" $.Values.folder | quote }}
+              readOnly: true
             {{- end }}
             {{- range $identifier, $asset := ($.Values.assets | default dict) }}
             {{- if $asset.hostPath }}
@@ -142,6 +177,13 @@ spec:
             - mountPath: /mnt/extra-addons
               name: extra-addons-mount
             {{- end }}
+            {{- if and (ne .Values.stage "development") .Values.code }}
+            # Read-only, so nothing in the pod can change the code the database was upgraded with
+            - name: build-folder
+              mountPath: /mnt/extra-addons
+              subPath: {{ trimPrefix "/" .Values.folder | quote }}
+              readOnly: true
+            {{- end }}
             {{- range $identifier, $asset := (.Values.assets | default dict) }}
             {{- if $asset.hostPath }}
             - name: addons-{{ $identifier }}
@@ -163,6 +205,11 @@ spec:
           hostPath:
             path: "{{ .Values.storage.code.hostPath }}{{ .Values.folder }}"
             type: DirectoryOrCreate
+        {{- end }}
+        {{- if and (ne .Values.stage "development") .Values.code }}
+        - name: build-folder
+          hostPath:
+            path: {{ .Values.code.hostPath }}
         {{- end }}
         
         {{- range $identifier, $asset := (.Values.assets | default dict) }}

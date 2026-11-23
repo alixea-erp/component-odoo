@@ -40,8 +40,8 @@ top-level directories of this folder (see below).
 
 ## Alixea
 
-This component is built and hosted on Alixea. In a development environment, `/etc/diploi/AGENTS.md`
-(also the instructions of the `diploi` MCP server) explains how the platform works. Do not
+This component is built and hosted on Alixea. In a development environment, `/etc/alixea/AGENTS.md`
+(also the instructions of the `alixea` MCP server) explains how the platform works. Do not
 speculate about platform behavior it does not describe.
 
 - `alixea.yaml` lists the stack and maps each component/addon to its folder. Read it before
@@ -49,7 +49,7 @@ speculate about platform behavior it does not describe.
 - How a change takes effect depends on the component — for Odoo, see below.
 - Env vars imported from other components are live in the container — list them with `printenv`
   instead of guessing, and never print secret values. New ones are added under **Environment** in the console.
-- `diploi logs <identifier> --follow` streams logs; `diploi exec <identifier> -- <command>` runs
+- `alixea logs <identifier> --follow` streams logs; `alixea exec <identifier> -- <command>` runs
   a command in another component's container.
 
 ### This component
@@ -61,7 +61,13 @@ speculate about platform behavior it does not describe.
 - **This folder is Odoo's `addons_path`.** Each custom addon is a top-level directory here with
   an `__manifest__.py`; Odoo ignores everything else in the folder (`.agents/`).
   In development the folder is mounted into the Odoo container at `/mnt/extra-addons`, so Odoo
-  sees edits at once. Staging and production run the same image.
+  sees edits at once, and a changed module is upgraded by hand (`odoo -u <module>`).
+- **Staging and production run the deployment's commit of this folder**, mounted read-only at
+  `/mnt/extra-addons`. When a commit changes an installed module's files, the start upgrades that module by
+  itself, on a copy of the database. If the upgrade fails, Odoo keeps running the commit and the database from
+  before, and the deployment page says which module failed. So run the upgrade in development before pushing:
+  a module that fails there fails the update. A new module is never installed by itself, it appears under Apps.
+  A Python package a module needs must be in the image: `initScript` and `preBuildScript` do nothing here.
 - **A module repository cloned into a top-level folder here** (a folder that holds modules, as an OCA repository
   does) is put on `addons_path` too, ahead of the module sets, when Odoo starts. Restart Odoo after cloning one. Its
   modules win over a set's modules of the same name. The folder name may only hold letters, digits, `.`, `_` and
@@ -69,7 +75,7 @@ speculate about platform behavior it does not describe.
 - Database: PostgreSQL from the `postgres` add-on. The Odoo role's connection settings are in
   the env (`HOST`, `PORT`, `USER`, `PASSWORD`, `DATABASE`); `psql` is in the
   image, but prefer `odoo shell` for ORM-level work. Do not re-initialize the database: the init
-  container records first-time setup in the `diploi_parameters` table and skips it afterwards.
+  container records first-time setup in the `alixea_parameters` table and skips it afterwards.
 - **AI in a module** goes through the Alixea AI proxy, paid with the credits of the deployment's account:
   `ALIXEA_AI_URL` + `/anthropic/v1/messages` or `/openai/v1/chat/completions`, with `ALIXEA_AI_TOKEN` as the API
   key. Never hard-code a provider's key, and never log the token. `README.md` has an example.

@@ -27,7 +27,7 @@ on:
 
 env:
   REGISTRY: public.ecr.aws
-  # Alixea's images, next to Diploi's p8t2q7f4/diploi/* in the same public registry
+  # public.ecr.aws/p8t2q7f4/alixea/component-odoo
   PROJECT: p8t2q7f4/alixea/${{ github.event.repository.name }}
 
 permissions:

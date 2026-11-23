@@ -47,6 +47,23 @@ records the new version. Versions only move forward.
 A major upgrade such as `18.0` to `19.0` is not automatic, and changing the series in `alixea.yaml` does not do it.
 That update fails and Odoo does not start until the series is changed back. The database is put back as it was.
 
+## Your own modules
+
+Your modules are the top-level folders of this folder of the project that have an `__manifest__.py`.
+
+- **Development:** the folder is mounted at `/mnt/extra-addons`, and Odoo sees an edit at once. Upgrade a module
+  you changed yourself, in Odoo's Apps or with `odoo -u <module>`.
+- **Staging and production:** Odoo runs the commit the deployment is on, mounted read-only. Every push to the
+  deployment's branch restarts Odoo. A push that changes an installed module's files upgrades that module, on a
+  copy of the database. A push that changes none of your module files is a plain restart. To choose when, pin the
+  deployment to a commit on its **Repository & Git** page.
+
+A new module is not installed by itself: it appears under Apps. A Python package a module needs has to be in the
+image, so ask for it. `initScript` and `preBuildScript` of `alixea.yaml` do nothing for this component.
+
+If an upgrade fails, Odoo goes back to the commit and the database from before, as below. Push a fix, which is a
+new attempt.
+
 ## When an update fails
 
 The database is put back as it was, and Odoo starts on the previous versions. The deployment turns red with a notice
@@ -56,7 +73,7 @@ that names the module:
 
 What to do:
 
-- Fix the module or view that no longer fits the new code, then restart Odoo.
+- Fix the module or view that no longer fits the new code, then restart Odoo. In staging and production, push the fix.
 - Or wait. A new version the next night is a new attempt. A restart with nothing changed is not.
 - If the notice says the new code could not be copied, the disk is probably full. Free some space or resize the
   disk, then restart Odoo. That restart tries the update again.
@@ -79,7 +96,7 @@ there is no older code to go back to.
 | ------------------- | ------ | ----------------------------------------------------- |
 | `/var/lib/odoo`     | `data` | Filestore, sessions and the copy of the running code. |
 | `/etc/odoo`         | `data` | `odoo.conf`. It survives restarts and image updates.  |
-| `/mnt/extra-addons` | `code` | Your own modules: this folder of the project.         |
+| `/mnt/extra-addons` | `code` | Your own modules: this folder of the project. In staging and production the deployment's commit, read-only. |
 | `/mnt/addons/<set>` | the VM | The checked module sets, read-only.                   |
 | `/home/odoo`        | `home` | Home directory of the `odoo` user.                    |
 

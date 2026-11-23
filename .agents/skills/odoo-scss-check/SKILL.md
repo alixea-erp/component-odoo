@@ -33,7 +33,7 @@ database from `/etc/odoo/odoo.conf` and writes nothing.
   reports uninstalled addons with `SKIP`; install the addon to check it.
 - Manifest `assets` changes are picked up without upgrading the module.
 - If the agent runs outside the Odoo container, prefix the same command with
-  `diploi exec odoo --` (the Odoo component's identifier in `alixea.yaml`).
+  `alixea exec odoo --` (the Odoo component's identifier in `alixea.yaml`).
 
 Do not report SCSS work as done until the check passes.
 

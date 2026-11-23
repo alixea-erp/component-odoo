@@ -10,6 +10,9 @@
 # database records. An update clones the database, upgrades it with the new code, and either records the new version
 # or puts the clone back and runs the old code from its copy. Nothing outside this script takes part.
 #
+# The project's own modules are part of the version in staging and production, where they are a build of a commit
+# (ODOO_OWN_COMMIT). In development they are the developer's working copy and no version.
+#
 # What it may drop: never the database under the live name, that one is only renamed. Only a database it named
 # itself (<name>__alixea_before, __alixea_new, __alixea_failed) that also carries the comment it wrote.
 set -euo pipefail
@@ -111,19 +114,19 @@ db_clone() { # <from> <to>: copy-on-write on Btrfs, a full copy where the disk c
   [ $status = 0 ] && db_mark "$2"
 }
 
-get_parameter() { psql -d "${2:-$DB}" -qtAc "SELECT value FROM diploi_parameters WHERE key = '$1'" 2>/dev/null || true; }
+get_parameter() { psql -d "${2:-$DB}" -qtAc "SELECT value FROM alixea_parameters WHERE key = '$1'" 2>/dev/null || true; }
 set_parameter() { # <key> <value> [database]
   psql -d "${3:-$DB}" -v ON_ERROR_STOP=1 -q \
-    -c "CREATE TABLE IF NOT EXISTS diploi_parameters (key TEXT PRIMARY KEY, value TEXT)" \
-    -c "INSERT INTO diploi_parameters (key, value) VALUES ('$1', '$2') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
+    -c "CREATE TABLE IF NOT EXISTS alixea_parameters (key TEXT PRIMARY KEY, value TEXT)" \
+    -c "INSERT INTO alixea_parameters (key, value) VALUES ('$1', '$2') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
 }
 
 #
-# The module sets the core mounted: DIPLOI_MODULE_SETS is "<set>=<checked> ...", DIPLOI_MODULE_SET_REFS
+# The module sets the core mounted: ALIXEA_MODULE_SETS is "<set>=<checked> ...", ALIXEA_MODULE_SET_REFS
 # "<set>=<version> ..." (the folder the core fetched the tag into)
 #
 
-set_ref() { echo " ${DIPLOI_MODULE_SET_REFS:-} " | sed -n "s/.* $1=\([^ ]*\) .*/\1/p"; }
+set_ref() { echo " ${ALIXEA_MODULE_SET_REFS:-} " | sed -n "s/.* $1=\([^ ]*\) .*/\1/p"; }
 manifest_value() { # <set folder> <installModules|modules|tag|pythonTag>
   python3 - "$1/manifest.json" "$2" <<'PYEOF'
 import json, os, sys
@@ -134,13 +137,20 @@ PYEOF
 }
 
 enabled_sets=""
-for entry in ${DIPLOI_MODULE_SETS:-}; do
+for entry in ${ALIXEA_MODULE_SETS:-}; do
   if [ "${entry#*=}" = true ] && [ -d "$SETS/${entry%%=*}" ]; then enabled_sets="$enabled_sets ${entry%%=*}"; fi
 done
 
-# What this pod is: the image and the versions of the checked sets
+# What this pod is: the image, the versions of the checked sets, and the own modules of a build
 parts="core=${ODOO_IMAGE:-unknown}"
 for set_name in $enabled_sets; do parts="$parts"$'\n'"set:$set_name=$(set_ref "$set_name")"; done
+# By their content, not the commit: a commit that changes nothing here is an ordinary start
+OWN_COMMIT=${ODOO_OWN_COMMIT:-}
+if [ -n "$OWN_COMMIT" ] && [ -d "$EXTRA_ADDONS" ]; then
+  parts="$parts"$'\n'"own=$(cd "$EXTRA_ADDONS" && find . -type f -not -path '*/__pycache__/*' -print0 | sort -z | xargs -0 -r sha256sum | sha256sum | cut -c1-16)"
+else
+  OWN_COMMIT=""
+fi
 WANTED=$(printf '%s' "$parts" | sha256sum | cut -c1-16)
 
 # A version as it was released, where a folder's name has a hash at its end
@@ -151,7 +161,7 @@ describe_pod() {
   local entry set_name image=${ODOO_IMAGE:-unknown} off="" tag built python_tag
   python_tag=$(python3 -c 'import sys; print(sys.implementation.cache_tag)')
   log "$(PYTHONPATH=$IMAGE_CODE odoo --version 2>/dev/null || echo Odoo), image ${image##*@}"
-  for entry in ${DIPLOI_MODULE_SETS:-}; do
+  for entry in ${ALIXEA_MODULE_SETS:-}; do
     set_name=${entry%%=*}
     case " $enabled_sets " in
       *" $set_name "*)
@@ -166,7 +176,11 @@ describe_pod() {
     esac
   done
   [ -z "$off" ] || log "Module sets off:$off"
-  if [ -d "$EXTRA_ADDONS" ]; then log "Own modules from: $(own_addons | sed 's/,/, /g')"; else log "Own modules: none, $EXTRA_ADDONS is not mounted"; fi
+  if [ -d "$EXTRA_ADDONS" ]; then
+    log "Own modules from: $(own_addons | sed 's/,/, /g')${OWN_COMMIT:+, built from commit ${OWN_COMMIT:0:7}}"
+  else
+    log "Own modules: none, $EXTRA_ADDONS is not mounted"
+  fi
 }
 
 # For the log: what this pod has that the recorded version did not
@@ -179,6 +193,7 @@ describe_changes() {
     [ "$before" != "$now" ] || continue
     label="module set ${name#set:}"
     if [ "$name" = core ]; then out="$out, a new Odoo image"
+    elif [ "$name" = own ]; then out="$out, the project's own modules${OWN_COMMIT:+ at commit ${OWN_COMMIT:0:7}}"
     elif [ -z "$before" ]; then out="$out, $label added"
     elif [ -z "$now" ]; then out="$out, $label removed"
     else out="$out, $label from $(plain_version "$before") to $(plain_version "$now")"; fi
@@ -188,7 +203,8 @@ describe_changes() {
 
 #
 # The copy of the code, $CODE/<id>: core/ is what PYTHONPATH names (the image's /opt/odoo), sets/<set> the sets,
-# parts the versions it holds. Made under another name and renamed when it is whole
+# own/ the own modules of a build with the commit beside it, parts the versions it holds. Made under another name and
+# renamed when it is whole
 #
 
 copy_tree() { # <from> <to>
@@ -205,13 +221,28 @@ copy_code() { # <id> [id of the copy to take unchanged parts from]
 
   while IFS= read -r part; do
     name=${part%%=*}
-    if [ "$name" = core ]; then source=$IMAGE_CODE name=core; else source=$SETS/${name#set:} name=sets/${name#set:}; fi
+    case "$name" in
+      core) source=$IMAGE_CODE ;;
+      own) source=$EXTRA_ADDONS ;;
+      *) source=$SETS/${name#set:} name=sets/${name#set:} ;;
+    esac
     if [ -n "$from" ] && grep -qxF "$part" "$from/parts" 2>/dev/null && [ -d "$from/$name" ]; then
       cp -a --reflink=auto "$from/$name" "$target/$name"
+    elif [ "$name" = own ]; then
+      # Whole: a project's module may import its tests
+      cp -a "$source" "$target/own"
     else
       copy_tree "$source" "$target/$name"
     fi
   done <<<"$parts"
+  # For the deployment page: the commit the own modules last changed at
+  if [ -d "$target/own" ]; then
+    if [ -f "${from:-none}/own-commit" ] && grep -qxF "$(grep '^own=' <<<"$parts")" "$from/parts"; then
+      cp "$from/own-commit" "$target/own-commit"
+    else
+      echo "$OWN_COMMIT" >"$target/own-commit"
+    fi
+  fi
 
   rm -rf "${CODE:?}/$1"
   mv "$target" "$CODE/$1"
@@ -221,10 +252,10 @@ set_addons_path() { sed -i "s#^addons_path = .*#addons_path = $1#" "$CONF"; }
 
 # This folder, then each module repository cloned into it: a folder that is not a module but holds modules. They come
 # before the sets, so the source of a set wins over its built modules while it is checked out
-own_addons() {
-  local folder name
-  printf '%s' "$EXTRA_ADDONS"
-  for folder in "$EXTRA_ADDONS"/*/; do
+own_addons() { # [folder, when not the mounted one]
+  local root=${1:-$EXTRA_ADDONS} folder name
+  printf '%s' "$root"
+  for folder in "$root"/*/; do
     name=$(basename "$folder")
     # NOTE! Other names are skipped: the path goes through sed and Odoo splits it on commas
     case "$name" in *[!A-Za-z0-9._-]*) continue ;; esac
@@ -235,9 +266,11 @@ own_addons() {
 
 # Which code Odoo runs: the image and the mounts, or a copy
 use_code() { # image | <id>
-  local core sets_root addons_path set_name
-  addons_path=$(own_addons)
+  local core sets_root addons_path set_name own=""
   if [ "$1" = image ]; then core=$IMAGE_CODE sets_root=$SETS; else core=$CODE/$1/core sets_root=$CODE/$1/sets; fi
+  # The own modules of a build are in the copy. A working copy is used as it is, also with old code
+  if [ "$1" != image ] && [ -d "$CODE/$1/own" ]; then own=$CODE/$1/own; fi
+  addons_path=$(own_addons "$own")
   for set_name in $( [ "$1" = image ] && echo "$enabled_sets" || ls "$sets_root" 2>/dev/null); do addons_path="$addons_path,$sets_root/$set_name"; done
   set_addons_path "$addons_path"
   ln -sfn "$core" "$CODE/current"
@@ -289,7 +322,7 @@ update_database() { # <database> <id of the old copy or ''> <upgrade | hashes>
   set_addons_path "$addons_path"
 
   # Unchecked sets first: a set can conflict with another, and swapping them in one change must work
-  for key in $(psql -d "$database" -qtAc "SELECT key FROM diploi_parameters WHERE key LIKE 'module_set:%'" 2>/dev/null || true); do
+  for key in $(psql -d "$database" -qtAc "SELECT key FROM alixea_parameters WHERE key LIKE 'module_set:%'" 2>/dev/null || true); do
     set_name=${key#module_set:}
     case " $enabled_sets " in *" $set_name "*) continue ;; esac
     if [ -n "$old_sets" ] && [ -d "$old_sets/$set_name" ]; then
@@ -311,7 +344,7 @@ env.cr.commit()
 PYEOF
       set_addons_path "$addons_path"
     fi
-    psql -d "$database" -v ON_ERROR_STOP=1 -q -c "DELETE FROM diploi_parameters WHERE key = '$key'"
+    psql -d "$database" -v ON_ERROR_STOP=1 -q -c "DELETE FROM alixea_parameters WHERE key = '$key'"
   done
 
   for set_name in $enabled_sets; do
@@ -352,7 +385,7 @@ SQL
 
 sets_in_use() {
   local old_sets=$CODE/$RECORDED/sets key set_name installed
-  for key in $(psql -d "$DB" -qtAc "SELECT key FROM diploi_parameters WHERE key LIKE 'module_set:%'" 2>/dev/null || true); do
+  for key in $(psql -d "$DB" -qtAc "SELECT key FROM alixea_parameters WHERE key LIKE 'module_set:%'" 2>/dev/null || true); do
     set_name=${key#module_set:}
     case " $enabled_sets " in *" $set_name "*) continue ;; esac
     [ -d "$old_sets/$set_name" ] || continue
@@ -388,6 +421,15 @@ check_for_updates() {
     echo "action=$action"
     echo "image.wanted=${ODOO_IMAGE:-}"
     for set_name in $enabled_sets; do echo "wanted.$set_name=$(set_tag "$SETS/$set_name" "$(set_ref "$set_name")")"; done
+    # The own modules of a build, by the commit they last changed at. The page shows the name as it is
+    if [ -n "$OWN_COMMIT" ]; then
+      if [ -f "${old:-none}/own-commit" ] && grep -qxF "$(grep '^own=' <<<"$parts")" "$old/parts"; then
+        echo "wanted.Own modules=$(cut -c1-7 "$old/own-commit")"
+      else
+        echo "wanted.Own modules=${OWN_COMMIT:0:7}"
+      fi
+    fi
+    if [ -f "${old:-none}/own-commit" ]; then echo "running.Own modules=$(cut -c1-7 "$old/own-commit")"; fi
     if [ -n "$old" ]; then
       echo "image.running=$(grep '^core=' "$old/parts" | cut -d= -f2-)"
       for set_name in $(ls "$old/sets" 2>/dev/null); do
@@ -569,7 +611,8 @@ fi
 
 HAS_OLD_CODE=false
 if [ -n "$RECORDED" ] && [ -d "$CODE/$RECORDED" ]; then HAS_OLD_CODE=true; fi
-attempt="$WANTED $(addons_hash)"
+# The own modules of a build are in $WANTED already. A working copy changes without it
+attempt="$WANTED $([ -n "$OWN_COMMIT" ] || addons_hash)"
 
 fail() { # <message>: Odoo runs the old code, or the start stops when there is none
   if [ $HAS_OLD_CODE = true ]; then
