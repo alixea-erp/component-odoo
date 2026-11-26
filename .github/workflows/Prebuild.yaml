@@ -43,7 +43,6 @@ jobs:
       matrix:
         series: ${{ github.event_name != 'workflow_dispatch' && fromJSON('["19.0"]') || (inputs.series == 'all' && fromJSON('["18.0", "19.0", "20.0"]') || fromJSON(inputs.series)) }}
     env:
-      # One build is both the production and the development image: <tag> and <tag>-dev.
       TAG: ${{ github.event_name == 'workflow_dispatch' && matrix.series || 'main' }}
 
     steps:
@@ -90,9 +89,7 @@ jobs:
           # it is, so only init.sh and modules.sh are new to a deployment
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.PROJECT }}:${{ env.TAG }}
           cache-to: type=inline
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.PROJECT }}:${{ env.TAG }}
-            ${{ env.REGISTRY }}/${{ env.PROJECT }}:${{ env.TAG }}-dev.
+          tags: ${{ env.REGISTRY }}/${{ env.PROJECT }}:${{ env.TAG }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}

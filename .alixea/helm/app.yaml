@@ -23,8 +23,6 @@ spec:
         {{- end }}
     spec:
       terminationGracePeriodSeconds: 10
-      imagePullSecrets:
-        - name: alixea-pull-secret
       initContainers:
         {{- if and (ne .Values.stage "development") .Values.build }}
         # The project's own modules in staging and production are the deployment's commit, which the core fetched into
